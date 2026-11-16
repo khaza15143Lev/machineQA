@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Machine and operator QA</title>
+<style>
+:root{
+  color-scheme: light dark;
+  --bg:#E6EAE7; --panel:#F6F8F6; --panel2:#EDF1EE; --ink:#1B2A31; --mute:#5A6A70; --line:#C6CECA;
+  --accent:#1F4E5F; --hard:#B3372B; --soft:#A86F0C; --multi:#5B54B0; --note:#66797F; --clean:#2C7A65;
+  --band:rgba(44,122,101,.16);
+  --serif:Charter,"Iowan Old Style","Palatino Linotype",Georgia,serif;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#11171A;--panel:#192125;--panel2:#1F292E;--ink:#E3EAE7;--mute:#93A3A8;--line:#2E3B41;
+    --accent:#86BFD0;--hard:#F08173;--soft:#E3B24E;--multi:#A6A0EE;--note:#8EA2A9;--clean:#6FC7AB;--band:rgba(111,199,171,.16)}
+}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{margin:0;font:15px/1.5 var(--sans);color:var(--ink);background:var(--bg);-webkit-text-size-adjust:100%}
+.wrap{max-width:1200px;margin:0 auto;padding:22px 20px 56px}
+h1,h2,h3{font-family:var(--serif);font-weight:600;letter-spacing:-.01em;margin:0}
+h1{font-size:28px;line-height:1.15} h2{font-size:20px;margin-bottom:6px} h3{font-size:16px;margin-bottom:4px}
+p{margin:0 0 10px}
+.sub{color:var(--mute);margin:6px 0 0;max-width:72ch}
+.hint{color:var(--mute);font-size:13px}
+.num{font-variant-numeric:tabular-nums}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+header.top{margin-bottom:18px}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tab{appearance:none;border:1px solid transparent;border-bottom:none;background:transparent;padding:9px 18px;cursor:pointer;color:var(--mute);border-radius:6px 6px 0 0;white-space:nowrap}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected="true"]{background:var(--panel);border-color:var(--line);color:var(--ink);font-weight:600;position:relative;top:1px}
+.sheet{background:var(--panel);border:1px solid var(--line);border-top:none;border-radius:0 0 8px 8px;padding:22px}
+.sheet[hidden]{display:none}
+.block{margin-top:30px}
+.find{border-left:4px solid var(--c);padding:8px 0 8px 14px;margin:12px 0;max-width:86ch}
+.find b{font-weight:600}
+.find p{margin:3px 0 0}
+.warn{--c:var(--soft)} .ok{--c:var(--clean)} .info{--c:var(--note)} .bad{--c:var(--hard)}
+.tablewrap{overflow:auto;border:1px solid var(--line);border-radius:6px}
+table.t{border-collapse:collapse;width:100%;font-size:14px}
+table.t th{text-align:left;background:var(--panel2);color:var(--mute);font-weight:600;padding:8px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.t td{padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+table.t td.r,table.t th.r{text-align:right}
+table.t tr:last-child td{border-bottom:0}
+table.t td.k{color:var(--mute);white-space:nowrap}
+.plotbox{border:1px solid var(--line);border-radius:6px;background:var(--panel2);padding:10px 8px 6px;position:relative}
+svg.plot{width:100%;height:auto;display:block;overflow:visible}
+svg.plot text{fill:var(--mute);font:11px var(--sans)}
+svg.plot .grid{stroke:var(--line);stroke-width:1}
+.key{display:flex;flex-wrap:wrap;gap:6px 20px;font-size:13px;color:var(--mute);padding:8px 4px 0}
+.key span{display:inline-flex;gap:6px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;margin:12px 0}
+.seg button{appearance:none;border:0;background:transparent;padding:7px 18px;cursor:pointer;color:var(--mute)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--panel);font-weight:600}
+.btn{appearance:none;cursor:pointer;background:var(--accent);color:var(--panel);border:0;border-radius:5px;padding:7px 14px;font-weight:600}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);font-weight:500}
+.btn:hover{filter:brightness(1.1)}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0 22px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:28px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--c);display:inline-block;flex:none}
+.field{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:6px 0;font-size:14px;max-width:360px}
+.field input,.field select{width:92px;text-align:right;background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:5px 8px;font-variant-numeric:tabular-nums}
+.field input.changed{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.drop{display:block;border:2px dashed var(--line);border-radius:8px;padding:28px 20px;text-align:center;cursor:pointer;background:var(--panel2);margin:14px 0}
+.drop:hover,.drop.over,.drop:focus-within{border-color:var(--accent)}
+.drop input{position:absolute;width:1px;height:1px;opacity:0}
+.drop b{font-family:var(--serif);font-size:18px;font-weight:600;display:block;margin-bottom:4px}
+.msg{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--line)}
+.msg .dot{margin-top:7px}
+.mcard{border:1px solid var(--line);border-radius:8px;padding:16px 18px;margin:18px 0;background:var(--panel)}
+.mcard>h3{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+.prose{max-width:76ch}.prose h3{margin-top:22px}.prose ul{padding-left:20px;margin:6px 0 10px}.prose li{margin:4px 0}
+.empty{padding:28px;text-align:center;color:var(--mute)}
+code{font:13px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--panel2);padding:1px 5px;border-radius:3px}
+details{border-top:1px solid var(--line);padding:12px 0}
+details summary{cursor:pointer;font-weight:600}
+@media (max-width:640px){.wrap{padding:14px 10px 40px}.sheet{padding:14px}h1{font-size:23px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Machine and operator QA</h1>
+    <p class="sub" id="lede"></p>
+  </header>
+  <div class="tabs" role="tablist" aria-label="Sheets">
+    <button class="tab" role="tab" id="t-overview" aria-controls="s-overview" aria-selected="true">Overview</button>
+    <button class="tab" role="tab" id="t-bias" aria-controls="s-bias" aria-selected="false">Bias</button>
+    <button class="tab" role="tab" id="t-drift" aria-controls="s-drift" aria-selected="false">Drift</button>
+    <button class="tab" role="tab" id="t-cal" aria-controls="s-cal" aria-selected="false">Calibration</button>
+    <button class="tab" role="tab" id="t-data" aria-controls="s-data" aria-selected="false">Data and settings</button>
+    <button class="tab" role="tab" id="t-notes" aria-controls="s-notes" aria-selected="false">Notes</button>
+  </div>
+
+  <section class="sheet" id="s-overview" role="tabpanel" aria-labelledby="t-overview">
+    <h2>What the data says</h2>
+    <p class="sub">Each finding is calculated from the loaded tests, and says how sure it is. Findings marked in amber need a decision.</p>
+    <div id="finds"></div>
+    <div class="block"><h3>Machines side by side</h3><div class="tablewrap"><table class="t" id="fleet"></table></div></div>
+  </section>
+
+  <section class="sheet" id="s-bias" role="tabpanel" aria-labelledby="t-bias" hidden>
+    <h2>Does one machine or operator read differently?</h2>
+    <p class="sub">Strength is compared after allowing for mix and age at break, so a machine that mostly breaks stronger concrete is not blamed for it.</p>
+    <div class="seg" id="factorSeg" role="group" aria-label="Compare by">
+      <button data-f="machine" aria-pressed="true">Machine</button><button data-f="user" aria-pressed="false">Operator</button>
+    </div>
+    <div id="bias-body"></div>
+  </section>
+
+  <section class="sheet" id="s-drift" role="tabpanel" aria-labelledby="t-drift" hidden>
+    <h2>Has any machine drifted over time?</h2>
+    <p class="sub">Each point is one set of specimens, shown as how far it broke from what its mix and age predict. A machine that drifts would trend up or down, or run on one side of its centre line.</p>
+    <div id="drift-body"></div>
+  </section>
+
+  <section class="sheet" id="s-cal" role="tabpanel" aria-labelledby="t-cal" hidden>
+    <h2>Calibration</h2>
+    <p class="sub">Calibration dates, intervals and constants from the machine records, set against when and how hard each machine was used.</p>
+    <div id="cal-body"></div>
+  </section>
+
+  <section class="sheet" id="s-data" role="tabpanel" aria-labelledby="t-data" hidden>
+    <h2>Data and settings</h2>
+    <p class="sub" id="srcline"></p>
+    <label class="drop" id="drop">
+      <input type="file" id="file" multiple accept=".xlsx,.xlsm,.csv,.tsv,.txt">
+      <b>Choose Excel or CSV files</b>
+      or drop them here. Files are read in your browser and never uploaded.
+    </label>
+    <div id="report" role="status" aria-live="polite"></div>
+    <div class="actions">
+      <button class="btn ghost" id="useSample">Use the bundled sample data</button>
+      <button class="btn ghost" id="tmpl">Download flat CSV template</button>
+    </div>
+    <div class="cols">
+      <div>
+        <h3>Settings</h3>
+        <label class="field"><span>Calibration interval (days)</span><input type="number" step="any" data-k="calDays"></label>
+        <label class="field"><span>Control limit (standard deviations)</span><input type="number" step="any" data-k="sigma"></label>
+        <label class="field"><span>Run rule (points in a row)</span><input type="number" step="1" data-k="run"></label>
+        <label class="field"><span>Ramp window low (psi/s)</span><input type="number" step="any" data-k="rampLo"></label>
+        <label class="field"><span>Ramp window high (psi/s)</span><input type="number" step="any" data-k="rampHi"></label>
+        <p class="hint">The default 395 days is 13 months. Use the interval your accreditation or method requires.</p>
+      </div>
+      <div>
+        <h3>Accepted files</h3>
+        <details open><summary>Database export</summary>
+          <p class="hint">One workbook with sheets, or one CSV per table, named <code>Results</code>, <code>Specimen</code>, <code>SampleSet</code>, <code>Sample</code> and <code>Setup</code> (required). <code>ForneyUser</code>, <code>Machine</code>, <code>FrameCalibration</code> and <code>MachineTuningParams</code> add operators, capacity and calibration. Only compression cylinders are used.</p></details>
+        <details><summary>Flat table</summary>
+          <p class="hint">One row per specimen with <code>date</code>, <code>age_days</code>, <code>strength_psi</code> and <code>machine</code> required. <code>operator</code>, <code>mix</code>, <code>set_id</code>, <code>sample</code>, <code>max_load_lbf</code> and <code>ramp_psi_per_s</code> are optional. The template has the exact headers. Calibration needs the database export.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <section class="sheet" id="s-notes" role="tabpanel" aria-labelledby="t-notes" hidden>
+    <div class="prose" id="notes"></div>
+  </section>
+</div>
+
+<script>
+/*DATA*/
+const BUNDLED={"tests":[{"id":"06d649db","sample":"8-17-26-SS-2","setId":"9f76a1a0-9a4c-11f1-9455-359f830ff6ea","date":"2026-08-24T15:42","age":7,"mix":"13","loc":"L17","machine":"23119","user":"Person_02148","load":54568.76,"stress":4342.4,"ramp":34.91},{"id":"0cac18a3","sample":"JW-1 8/5","setId":"993f80f0-9672-11f1-b643-5f9a060fabd2","date":"2026-08-13T15:03","age":7,"mix":"65","loc":"L22","machine":"24059","user":"Person_02148","load":60796.38,"stress":4838.0,"ramp":34.83},{"id":"1dbea234","sample":"8/18/26-DR-3","setId":"979ab2c7-4b1a-44be-bf01-71a30fd312ad","date":"2026-09-15T13:07","age":28,"mix":"201","loc":"L15","machine":"23119","user":"Person_02148","load":92848.97,"stress":7388.7,"ramp":34.88},{"id":"1f070f1f","sample":"JW5K","setId":"a0b3fa20-9bed-11f1-aecc-bfd77775a486","date":"2026-08-28T14:21","age":7,"mix":"13","loc":"L18","machine":"24059","user":"Person_02148","load":96499.86,"stress":7679.2,"ramp":38.51},{"id":"20e2eb73","sample":"AP 8/6/26 2","setId":"bd420782-920c-11f1-8da5-35aa80e833a7","date":"2026-09-03T16:28","age":28,"mix":"6","loc":"L09","machine":"23119","user":"Person_02148","load":34828.18,"stress":2771.5,"ramp":24.08},{"id":"20e7b70d","sample":"DE-1 HP","setId":"8b850da1-971b-11f1-b643-5f9a060fabd2","date":"2026-09-10T13:31","age":28,"mix":"5","loc":"L18","machine":"24059","user":"Person_02148","load":91528.33,"stress":7283.6,"ramp":40.91},{"id":"249ad877","sample":"8/10/26-2\u2013BP","setId":"ae04d880-94e9-11f1-a64b-bffd7202f696","date":"2026-08-17T14:55","age":7,"mix":"2","loc":"L08","machine":"23119","user":"Person_02148","load":42912.12,"stress":3432.0,"ramp":34.56},{"id":"266c5595","sample":"8/19/26-2-BP","setId":"572de3b1-9be4-11f1-8e75-1f8510e1af5f","date":"2026-09-17T13:09","age":28,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":39782.64,"stress":3165.8,"ramp":31.81},{"id":"28180e8d","sample":"8/14/26-JS-1","setId":"6afba190-9a6b-11f1-b2fd-37bcb462fc81","date":"2026-08-21T13:37","age":7,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":25117.4,"stress":2008.8,"ramp":28.97},{"id":"2ad0b73c","sample":"8/5/26-DR-1","setId":"bcbe588f-ad8d-4af1-aa03-66ac1473f6fb","date":"2026-09-02T14:16","age":28,"mix":"13","loc":"L20","machine":"23119","user":"Person_02148","load":67664.1,"stress":5384.5,"ramp":34.64},{"id":"2e1fa3fc","sample":"8-6-1-ig","setId":"67ae9000-9184-11f1-85d1-7dd7122dd963","date":"2026-08-13T13:22","age":7,"mix":"3","loc":"L04","machine":"23119","user":"Person_02148","load":39360.17,"stress":3132.2,"ramp":25.62},{"id":"3f55315e","sample":"8-6-2-ig","setId":"916b1490-9193-11f1-991b-91b3adacd334","date":"2026-08-13T14:04","age":7,"mix":"3","loc":"L04","machine":"23119","user":"Person_02148","load":40854.21,"stress":3251.1,"ramp":21.87},{"id":"417621d1","sample":"Max-2-J&E ","setId":"c82d46c4-351a-4299-89a0-468d575c8610","date":"2026-09-04T14:57","age":28,"mix":"92","loc":"L03","machine":"23119","user":"Person_02148","load":68647.68,"stress":5462.8,"ramp":34.71},{"id":"41903f15","sample":"8/7/26-JS-2","setId":"5e703cd0-97fd-11f1-a2e5-d7d51f8b242e","date":"2026-08-17T16:44","age":7,"mix":"120","loc":"L16","machine":"24059","user":"Person_02148","load":64596.62,"stress":5140.4,"ramp":-2.36},{"id":"44835301","sample":"8/10/26-mg-2","setId":"f793cff0-94ef-11f1-ab06-67de526d6dcd","date":"2026-08-17T14:50","age":7,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":24379.99,"stress":1949.8,"ramp":25.04},{"id":"52267c08","sample":"8-5-26-SS-1","setId":"37d16140-90c2-11f1-91eb-e72177c729ad","date":"2026-08-12T13:20","age":7,"mix":"13","loc":"L17","machine":"23119","user":"Person_02148","load":54686.63,"stress":4351.8,"ramp":32.46},{"id":"5227aa9c","sample":"AP 8/6/26 2","setId":"bd420780-920c-11f1-8da5-35aa80e833a7","date":"2026-08-13T18:32","age":7,"mix":"6","loc":"L09","machine":"23119","user":"Person_02148","load":22737.48,"stress":1809.4,"ramp":17.29},{"id":"5a449c42","sample":"8/10/26-2\u2013BP","setId":"ae04d880-94e9-11f1-a64b-bffd7202f696","date":"2026-08-17T14:57","age":7,"mix":"2","loc":"L08","machine":"23119","user":"Person_02148","load":43419.25,"stress":3455.2,"ramp":34.53},{"id":"6a3656f5","sample":"8/10/26-mg-2","setId":"f793cff1-94ef-11f1-ab06-67de526d6dcd","date":"2026-09-08T13:30","age":28,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":40041.06,"stress":3186.4,"ramp":33.51},{"id":"73ad3a3e","sample":"8/7/26-JS-(1)","setId":"d0a80b70-97fd-11f1-a2e5-d7d51f8b242e","date":"2026-08-17T16:21","age":7,"mix":"120","loc":"L16","machine":"24059","user":"Person_02148","load":68133.11,"stress":5421.9,"ramp":98.03},{"id":"79d21230","sample":"8/10-26-1-BP","setId":"12f1ca21-94c5-11f1-a64b-bffd7202f696","date":"2026-09-08T13:03","age":28,"mix":"5","loc":"L14","machine":"23119","user":"Person_02148","load":66502.05,"stress":5292.1,"ramp":34.74},{"id":"8ec5b275","sample":"8/14/26 MW3","setId":"f36ce981-9a48-11f1-9efb-cb83d21cdb23","date":"2026-09-11T12:25","age":28,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":38523.74,"stress":3065.6,"ramp":11.45},{"id":"980c54ec","sample":"8/6/26-MG-1","setId":"425e7b26-e940-4618-9001-af9cb45b613c","date":"2026-08-13T14:08","age":7,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":25275.04,"stress":2011.3,"ramp":17.46},{"id":"99f0a23b","sample":"8/18/26-DR-2","setId":"37c95241-e237-414d-be5c-b762a3548d4b","date":"2026-09-01T15:05","age":14,"mix":"201","loc":"L15","machine":"23119","user":"Person_02148","load":58406.96,"stress":4647.9,"ramp":34.6},{"id":"9b023d20","sample":"8/11/26 AP-1","setId":"a18c18b2-95ad-11f1-bb5a-8775b0452794","date":"2026-09-08T18:08","age":28,"mix":"13","loc":"L12","machine":"23119","user":"Person_02148","load":70769.45,"stress":5631.7,"ramp":34.75},{"id":"ab8e2fd8","sample":"DE 8/6/26 1","setId":"0d8399e0-920b-11f1-8da5-35aa80e833a7","date":"2026-08-13T13:36","age":7,"mix":"6","loc":"L09","machine":"23119","user":"Person_02148","load":23438.79,"stress":1865.2,"ramp":19.7},{"id":"b32b92f0","sample":"DE 8/6/26 1","setId":"0d83c0f0-920b-11f1-8da5-35aa80e833a7","date":"2026-09-03T12:37","age":28,"mix":"6","loc":"L09","machine":"23119","user":"Person_02148","load":36905.74,"stress":2936.9,"ramp":13.93},{"id":"bdcc6265","sample":"8-18-1-ig","setId":"2d8db110-9b22-11f1-b92f-f5c24503bc54","date":"2026-08-25T12:06","age":7,"mix":"54","loc":"L05","machine":"23119","user":"Person_02148","load":27533.64,"stress":2191.1,"ramp":13.31},{"id":"c06720a6","sample":"8/10-26-1-BP","setId":"12f1ca20-94c5-11f1-a64b-bffd7202f696","date":"2026-08-17T14:40","age":7,"mix":"5","loc":"L14","machine":"23119","user":"Person_02148","load":48531.02,"stress":3881.4,"ramp":34.75},{"id":"ca891554","sample":"8-6-1-ig","setId":"67ae9001-9184-11f1-85d1-7dd7122dd963","date":"2026-09-03T13:32","age":28,"mix":"3","loc":"L04","machine":"23119","user":"Person_02148","load":55298.31,"stress":4400.5,"ramp":34.3},{"id":"e21a1542","sample":"Max-2-J&E ","setId":"c82d46c4-351a-4299-89a0-468d575c8610","date":"2026-09-04T14:54","age":28,"mix":"92","loc":"L03","machine":"23119","user":"Person_02148","load":63367.55,"stress":5042.6,"ramp":34.84},{"id":"e5b7d2d9","sample":"DE 8/6/26 2","setId":"12ba7b32-920c-11f1-8da5-35aa80e833a7","date":"2026-09-03T12:42","age":28,"mix":"6","loc":"L09","machine":"23119","user":"Person_02148","load":32452.34,"stress":2582.5,"ramp":8.7},{"id":"fb7f815a","sample":"8-12-2-ig","setId":"8f858550-966d-11f1-ac3e-e161c2e7416c","date":"2026-08-19T15:30","age":7,"mix":"3","loc":"L09","machine":"23119","user":"Person_02148","load":39667.94,"stress":3172.5,"ramp":25.81},{"id":"00b18447","sample":"8/19/26-2-BP","setId":"572de3b1-9be4-11f1-8e75-1f8510e1af5f","date":"2026-09-17T13:04","age":28,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":39220.09,"stress":3121.0,"ramp":32.32},{"id":"0593d5ec","sample":"8-6-2-ig","setId":"916b1491-9193-11f1-991b-91b3adacd334","date":"2026-09-03T12:53","age":28,"mix":"3","loc":"L04","machine":"23119","user":"Person_02148","load":59306.21,"stress":4719.4,"ramp":34.47},{"id":"086f3e21","sample":"8/18/26-DR-1","setId":"aa43e221-8845-46e0-ab2e-e5b355b6baf5","date":"2026-08-21T15:20","age":3,"mix":"201","loc":"L15","machine":"23119","user":"Person_02148","load":13300.14,"stress":1058.4,"ramp":19.01},{"id":"35561816","sample":"DE-1 HP","setId":"8b850da0-971b-11f1-b643-5f9a060fabd2","date":"2026-08-19T14:53","age":7,"mix":"5","loc":"L18","machine":"24059","user":"Person_02148","load":68833.51,"stress":5477.6,"ramp":32.3},{"id":"3bcaee70","sample":"8/18/26-DR-2","setId":"62305cdc-3f1b-4cf4-8b64-f9a31e06aa21","date":"2026-08-21T15:25","age":3,"mix":"201","loc":"L15","machine":"23119","user":"Person_02148","load":39650.83,"stress":3155.3,"ramp":29.17},{"id":"3f2047c8","sample":"8/7/26-JS-(1)","setId":"d0a80b71-97fd-11f1-a2e5-d7d51f8b242e","date":"2026-09-08T19:41","age":28,"mix":"120","loc":"L16","machine":"24059","user":"Person_02148","load":89472.07,"stress":7120.0,"ramp":33.36},{"id":"48839c31","sample":"8/14/26-JS-1","setId":"6afba190-9a6b-11f1-b2fd-37bcb462fc81","date":"2026-08-21T13:40","age":7,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":24038.66,"stress":1912.9,"ramp":19.2},{"id":"569df2a0","sample":"8/12/26 AP-2","setId":"2df47472-9688-11f1-8b24-1d8bc4a95c53","date":"2026-09-08T19:07","age":28,"mix":"13","loc":"L10","machine":"24059","user":"Person_02148","load":77877.54,"stress":6197.3,"ramp":31.61},{"id":"5e18b7a1","sample":"JW5K","setId":"a0b3fa20-9bed-11f1-aecc-bfd77775a486","date":"2026-08-28T14:26","age":7,"mix":"13","loc":"L18","machine":"24059","user":"Person_02148","load":59129.81,"stress":4705.4,"ramp":38.76},{"id":"6826b08f","sample":"8/5/26-DR-2","setId":"435bfaf0-d85c-4a7e-a127-8871943dcd0c","date":"2026-09-02T14:24","age":28,"mix":"13","loc":"L20","machine":"23119","user":"Person_02148","load":90311.93,"stress":7186.8,"ramp":34.81},{"id":"6a947120","sample":"8/14/26 MW3","setId":"f36ce980-9a48-11f1-9efb-cb83d21cdb23","date":"2026-08-21T12:34","age":7,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":28384.09,"stress":2258.7,"ramp":31.16},{"id":"6aeffaf6","sample":"8-5-26-SS-1","setId":"37d16141-90c2-11f1-91eb-e72177c729ad","date":"2026-09-02T12:48","age":28,"mix":"13","loc":"L17","machine":"23119","user":"Person_02148","load":66672.53,"stress":5305.6,"ramp":34.66},{"id":"6c84537c","sample":"8/18/26-DR-2","setId":"c1f0b7ee-4d8f-4bc5-bad0-847479cf1590","date":"2026-09-15T12:59","age":28,"mix":"201","loc":"L15","machine":"23119","user":"Person_02148","load":71586.8,"stress":5696.7,"ramp":34.67},{"id":"7b62c70d","sample":"8-17-26-SS-1","setId":"b2ce3711-9a31-11f1-aa4d-7fc58e24c4f5","date":"2026-09-14T12:37","age":28,"mix":"13","loc":"L17","machine":"23119","user":"Person_02148","load":62588.79,"stress":4980.7,"ramp":34.66},{"id":"7d233f1a","sample":"8/6/2026 MW2","setId":"66e577b1-9576-11f1-bae7-3912a3c0c84b","date":"2026-09-03T18:37","age":28,"mix":"13","loc":"L19","machine":"24059","user":"Person_02148","load":75472.57,"stress":6005.9,"ramp":41.77},{"id":"7dd2f83b","sample":"8/13/26-AC-1","setId":"70916201-97ca-11f1-a295-912870efd1e4","date":"2026-09-10T12:19","age":28,"mix":"66","loc":"L07","machine":"23119","user":"Person_02148","load":67120.65,"stress":5341.3,"ramp":34.72},{"id":"80b3fd15","sample":"5K HP","setId":"66a271c1-9717-11f1-b643-5f9a060fabd2","date":"2026-09-10T13:40","age":28,"mix":"13","loc":"L18","machine":"24059","user":"Person_02148","load":79045.84,"stress":6290.3,"ramp":39.85},{"id":"819b5388","sample":"MG-1","setId":"241fbe40-9bfc-11f1-aba8-579ea96554de","date":"2026-08-26T15:32","age":7,"mix":"108","loc":"L11","machine":"23119","user":"Person_02148","load":44738.65,"stress":3560.2,"ramp":34.81},{"id":"894b4be3","sample":"8/13/26-AC-1","setId":"70916201-97ca-11f1-a295-912870efd1e4","date":"2026-09-10T12:25","age":28,"mix":"66","loc":"L07","machine":"23119","user":"Person_02148","load":67499.13,"stress":5371.4,"ramp":34.62},{"id":"9251c937","sample":"8-10-1-ig","setId":"0646c3b0-94ad-11f1-9b6d-c76debf0ee11","date":"2026-08-17T14:23","age":7,"mix":"9","loc":"L17","machine":"23119","user":"Person_02148","load":19072.6,"stress":1525.4,"ramp":28.35},{"id":"99f73cd9","sample":"DE-2-Cleo Powell order 33","setId":"5a6d1941-973b-11f1-9db8-e92608ce54a3","date":"2026-09-10T12:32","age":28,"mix":"108","loc":"L13","machine":"23119","user":"Person_02148","load":42907.81,"stress":3414.5,"ramp":29.55},{"id":"ba22ef74","sample":"8/18/26-DR-1","setId":"1c9fc814-6dc3-4d43-9142-34a4958ae509","date":"2026-09-15T12:44","age":28,"mix":"201","loc":"L15","machine":"23119","user":"Person_02148","load":29315.13,"stress":2332.8,"ramp":32.15},{"id":"bafef33f","sample":"8/5/26-DR-2","setId":"dc31642a-3bbf-43f8-b150-2b6ea5bc6931","date":"2026-08-19T17:49","age":14,"mix":"13","loc":"L20","machine":"23119","user":"Person_02148","load":83432.88,"stress":6672.7,"ramp":34.77},{"id":"c8e57f75","sample":"8/6/26-MG-1","setId":"425e7b26-e940-4618-9001-af9cb45b613c","date":"2026-08-13T14:06","age":7,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":25642.09,"stress":2040.5,"ramp":21.53},{"id":"cb568e16","sample":"8/5/26-AC-1","setId":"68e4aa90-917a-11f1-a837-57e996db0cca","date":"2026-08-12T13:16","age":7,"mix":"31","loc":"L09","machine":"23119","user":"Person_02148","load":47357.01,"stress":3768.6,"ramp":34.41},{"id":"d075093e","sample":"8/14/26-JS-2","setId":"4e54ecd1-9a6c-11f1-b2fd-37bcb462fc81","date":"2026-09-11T14:03","age":28,"mix":"5","loc":"L08","machine":"23119","user":"Person_02148","load":59663.17,"stress":4747.8,"ramp":34.36},{"id":"d9f526c2","sample":"8/10/26-2\u2013BP","setId":"ae04d881-94e9-11f1-a64b-bffd7202f696","date":"2026-09-08T13:37","age":28,"mix":"2","loc":"L08","machine":"23119","user":"Person_02148","load":58123.69,"stress":4625.3,"ramp":34.56},{"id":"e1261cd7","sample":"8/7/26-JS-2","setId":"5e7063e0-97fd-11f1-a2e5-d7d51f8b242e","date":"2026-09-08T19:26","age":28,"mix":"120","loc":"L16","machine":"24059","user":"Person_02148","load":89193.84,"stress":7097.8,"ramp":36.7},{"id":"e4c027ec","sample":"DE-1 HP","setId":"8b850da1-971b-11f1-b643-5f9a060fabd2","date":"2026-09-10T13:23","age":28,"mix":"5","loc":"L18","machine":"24059","user":"Person_02148","load":89274.76,"stress":7104.3,"ramp":34.83},{"id":"ea4c4377","sample":"JW-2","setId":"c13186d0-9bf4-11f1-aecc-bfd77775a486","date":"2026-08-28T14:48","age":7,"mix":"13","loc":"L18","machine":"24059","user":"Person_02148","load":48683.93,"stress":3874.1,"ramp":33.76},{"id":"11604632","sample":"8/18/26-DR-1","setId":"c0140810-b240-47a8-ae9a-bae0af678c18","date":"2026-09-01T15:02","age":14,"mix":"201","loc":"L15","machine":"23119","user":"Person_02148","load":22757.24,"stress":1811.0,"ramp":33.46},{"id":"118bca10","sample":"8-17-26-SS-2","setId":"9f76a1a0-9a4c-11f1-9455-359f830ff6ea","date":"2026-08-24T15:47","age":7,"mix":"13","loc":"L17","machine":"23119","user":"Person_02148","load":56641.27,"stress":4507.4,"ramp":34.58},{"id":"14582304","sample":"8/14/26-AC-1","setId":"96c27381-9a16-11f1-a355-81694a425efe","date":"2026-09-11T13:04","age":28,"mix":"66","loc":"L07","machine":"23119","user":"Person_02148","load":69378.67,"stress":5521.0,"ramp":34.75},{"id":"28359618","sample":"8/5/26-DR-1","setId":"bcbe588f-ad8d-4af1-aa03-66ac1473f6fb","date":"2026-09-02T14:14","age":28,"mix":"13","loc":"L20","machine":"23119","user":"Person_02148","load":69166.55,"stress":5504.1,"ramp":34.72},{"id":"2a120d92","sample":"8/10/26-mg-1","setId":"77d8cbe1-94ee-11f1-ab06-67de526d6dcd","date":"2026-09-08T12:50","age":28,"mix":"66","loc":"L07","machine":"23119","user":"Person_02148","load":69680.71,"stress":5545.0,"ramp":34.75},{"id":"354d203c","sample":"8/19/26-2-BP","setId":"572de3b1-9be4-11f1-8e75-1f8510e1af5f","date":"2026-09-17T13:12","age":28,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":38645.39,"stress":3075.3,"ramp":31.7},{"id":"360fd3d0","sample":"8/14/26 MW2","setId":"fbfd8f10-9a47-11f1-9efb-cb83d21cdb23","date":"2026-09-11T13:58","age":28,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":37028.49,"stress":2946.6,"ramp":28.65},{"id":"3b97eab0","sample":"JW-1 8/5","setId":"993f80f1-9672-11f1-b643-5f9a060fabd2","date":"2026-09-02T13:43","age":28,"mix":"65","loc":"L22","machine":"24059","user":"Person_02148","load":69928.97,"stress":5564.8,"ramp":30.85},{"id":"412228e0","sample":"8/14/26 MW3","setId":"f36ce981-9a48-11f1-9efb-cb83d21cdb23","date":"2026-09-11T12:35","age":28,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":39200.88,"stress":3119.5,"ramp":33.85},{"id":"57f4bc80","sample":"8-17-26-SS-1","setId":"b2ce3710-9a31-11f1-aa4d-7fc58e24c4f5","date":"2026-08-24T15:37","age":7,"mix":"13","loc":"L17","machine":"23119","user":"Person_02148","load":50766.58,"stress":4039.9,"ramp":34.84},{"id":"5ce1b4cc","sample":"DE-2-Cleo Powell order 33","setId":"5a6d1941-973b-11f1-9db8-e92608ce54a3","date":"2026-09-10T12:27","age":28,"mix":"108","loc":"L13","machine":"23119","user":"Person_02148","load":41983.29,"stress":3340.9,"ramp":32.69},{"id":"614e8c3e","sample":"8/5/26-1-BP","setId":"56eb0ca1-90d3-11f1-b8c8-c181a5634d97","date":"2026-09-02T12:55","age":28,"mix":"2","loc":"L01","machine":"23119","user":"Person_02148","load":67938.06,"stress":5406.3,"ramp":31.52},{"id":"630aad17","sample":"8/18/26-DR-2","setId":"8511c7db-5c6c-40f7-b183-5267ba4dc921","date":"2026-08-25T14:25","age":7,"mix":"201","loc":"L15","machine":"23119","user":"Person_02148","load":52813.85,"stress":4202.8,"ramp":34.76},{"id":"68246480","sample":"8/10-26-1-BP","setId":"12f1ca21-94c5-11f1-a64b-bffd7202f696","date":"2026-09-08T13:11","age":28,"mix":"5","loc":"L14","machine":"23119","user":"Person_02148","load":64731.17,"stress":5151.1,"ramp":34.65},{"id":"686d1bf7","sample":"8/7/26-JS-(1)","setId":"d0a80b71-97fd-11f1-a2e5-d7d51f8b242e","date":"2026-09-08T19:50","age":28,"mix":"120","loc":"L16","machine":"24059","user":"Person_02148","load":89438.8,"stress":7117.3,"ramp":33.59},{"id":"72e3323b","sample":"8/10-26-1-BP","setId":"12f1ca20-94c5-11f1-a64b-bffd7202f696","date":"2026-08-17T14:42","age":7,"mix":"5","loc":"L14","machine":"23119","user":"Person_02148","load":47768.55,"stress":3820.4,"ramp":34.31},{"id":"88b614b0","sample":"AP 8/6/26 2","setId":"bd420782-920c-11f1-8da5-35aa80e833a7","date":"2026-09-03T16:23","age":28,"mix":"6","loc":"L09","machine":"23119","user":"Person_02148","load":35084.72,"stress":2792.0,"ramp":-0.93},{"id":"8c1e4398","sample":"8/13/26-AC-1","setId":"70916200-97ca-11f1-a295-912870efd1e4","date":"2026-08-20T12:33","age":7,"mix":"66","loc":"L07","machine":"23119","user":"Person_02148","load":51497.98,"stress":4118.6,"ramp":33.39},{"id":"983f019a","sample":"8/5/26-DR-1","setId":"bcbe588f-ad8d-4af1-aa03-66ac1473f6fb","date":"2026-09-02T14:20","age":28,"mix":"13","loc":"L20","machine":"23119","user":"Person_02148","load":67935.43,"stress":5406.1,"ramp":34.6},{"id":"9919b980","sample":"8/12/26 AP-2","setId":"2df47470-9688-11f1-8b24-1d8bc4a95c53","date":"2026-08-19T17:11","age":7,"mix":"13","loc":"L10","machine":"24059","user":"Person_02148","load":61327.82,"stress":4880.3,"ramp":60.36},{"id":"9e6cba07","sample":"8/18/26-DR-3","setId":"f3864e1e-f2de-4d1f-aa6d-e715ea5ad50a","date":"2026-09-01T15:13","age":14,"mix":"201","loc":"L15","machine":"23119","user":"Person_02148","load":77192.08,"stress":6142.8,"ramp":34.79},{"id":"ac984bbb","sample":"DE 8/6/26 2","setId":"12ba7b32-920c-11f1-8da5-35aa80e833a7","date":"2026-09-03T12:44","age":28,"mix":"6","loc":"L09","machine":"23119","user":"Person_02148","load":33736.96,"stress":2684.7,"ramp":21.28},{"id":"bddccba8","sample":"8/18/26-DR-1","setId":"f439e138-534c-46c5-8387-3e7a24c6d567","date":"2026-08-25T14:21","age":7,"mix":"201","loc":"L15","machine":"23119","user":"Person_02148","load":18815.83,"stress":1497.3,"ramp":25.89},{"id":"c374df74","sample":"8/10/26-mg-2","setId":"f793cff1-94ef-11f1-ab06-67de526d6dcd","date":"2026-09-08T13:27","age":28,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":40240.65,"stress":3202.2,"ramp":12.76},{"id":"d5bce03b","sample":"8/14/26-JS-2","setId":"4e54ecd0-9a6c-11f1-b2fd-37bcb462fc81","date":"2026-08-21T13:48","age":7,"mix":"5","loc":"L08","machine":"23119","user":"Person_02148","load":49226.27,"stress":3917.3,"ramp":34.78},{"id":"d92bfae9","sample":"8/5/26-AC-1","setId":"68e4aa91-917a-11f1-a837-57e996db0cca","date":"2026-09-02T12:34","age":28,"mix":"31","loc":"L09","machine":"23119","user":"Person_02148","load":61382.26,"stress":4884.6,"ramp":34.61},{"id":"eb60c487","sample":"8-5-26-SS-2","setId":"e5cef5f0-90cc-11f1-8bd5-87b666a243a4","date":"2026-08-12T14:27","age":7,"mix":"13","loc":"L17","machine":"23119","user":"Person_02148","load":57721.29,"stress":4663.0,"ramp":34.61},{"id":"f62e0c22","sample":"JW5K","setId":"a0b3fa21-9bed-11f1-aecc-bfd77775a486","date":"2026-09-16T12:29","age":28,"mix":"13","loc":"L18","machine":"24059","user":"Person_02148","load":86560.93,"stress":6888.3,"ramp":37.64},{"id":"f64952da","sample":"8-10-26-1-AL","setId":"8a1944a0-94d6-11f1-833c-35f002e28f08","date":"2026-08-17T14:46","age":7,"mix":"30","loc":"L02","machine":"23119","user":"Person_02148","load":28589.75,"stress":2286.5,"ramp":26.42},{"id":"fb60623a","sample":"8/14/26 MW1","setId":"60885921-9a47-11f1-9efb-cb83d21cdb23","date":"2026-09-11T13:18","age":28,"mix":"66","loc":"L07","machine":"23119","user":"Person_02148","load":66321.88,"stress":5277.7,"ramp":34.51},{"id":"fca57d34","sample":"8/7/26-JS-(1)","setId":"d0a80b71-97fd-11f1-a2e5-d7d51f8b242e","date":"2026-09-08T19:45","age":28,"mix":"120","loc":"L16","machine":"24059","user":"Person_02148","load":85827.26,"stress":6829.9,"ramp":33.63},{"id":"0abf492c","sample":"DE-2-Cleo Powell order 33","setId":"5a6d1940-973b-11f1-9db8-e92608ce54a3","date":"2026-08-20T14:50","age":7,"mix":"108","loc":"L13","machine":"23119","user":"Person_02148","load":31459.04,"stress":2516.0,"ramp":23.06},{"id":"0c087640","sample":"8-11-26-2-AL","setId":"c70675d0-95b3-11f1-9ebd-b7b877cf4ea0","date":"2026-08-18T13:54","age":7,"mix":"31","loc":"L12","machine":"23119","user":"Person_02148","load":28427.7,"stress":2262.2,"ramp":31.59},{"id":"1d81020d","sample":"8-10-1-ig","setId":"0646c3b1-94ad-11f1-9b6d-c76debf0ee11","date":"2026-09-08T12:43","age":28,"mix":"9","loc":"L17","machine":"23119","user":"Person_02148","load":28204.27,"stress":2244.4,"ramp":26.73},{"id":"2331dc36","sample":"8/14/26 MW2","setId":"fbfd6800-9a47-11f1-9efb-cb83d21cdb23","date":"2026-08-21T13:42","age":7,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":26814.44,"stress":2133.8,"ramp":23.56},{"id":"426977a1","sample":"8-18-1-ig","setId":"2d8db111-9b22-11f1-b92f-f5c24503bc54","date":"2026-09-15T12:06","age":28,"mix":"54","loc":"L05","machine":"23119","user":"Person_02148","load":37478.11,"stress":2982.4,"ramp":31.15},{"id":"4825ddcf","sample":"8-12-26-SS-2","setId":"da972e81-965a-11f1-8b2d-d9efcea6b46a","date":"2026-09-09T12:20","age":28,"mix":"175","loc":"L06","machine":"23119","user":"Person_02148","load":65390.94,"stress":5203.6,"ramp":34.78},{"id":"553c251d","sample":"8/5/26-DR-2","setId":"d179dd8a-15c9-4a52-add9-b276bb05ee75","date":"2026-08-12T18:58","age":7,"mix":"13","loc":"L20","machine":"23119","user":"Person_02148","load":77085.51,"stress":6134.3,"ramp":34.94},{"id":"5d6c7c34","sample":"MG-1","setId":"241fbe40-9bfc-11f1-aba8-579ea96554de","date":"2026-08-26T15:34","age":7,"mix":"108","loc":"L11","machine":"23119","user":"Person_02148","load":43939.86,"stress":3496.6,"ramp":34.44},{"id":"6217a138","sample":"8/5/26-1-BP","setId":"56eb0ca0-90d3-11f1-b8c8-c181a5634d97","date":"2026-08-12T16:06","age":7,"mix":"2","loc":"L01","machine":"23119","user":"Person_02148","load":50980.82,"stress":4077.3,"ramp":34.8},{"id":"78053b12","sample":"8-17-26-SS-2","setId":"9f76a1a1-9a4c-11f1-9455-359f830ff6ea","date":"2026-09-14T12:42","age":28,"mix":"13","loc":"L17","machine":"23119","user":"Person_02148","load":70604.93,"stress":5618.6,"ramp":34.69},{"id":"7966761d","sample":"8-18-1-ig","setId":"2d8db111-9b22-11f1-b92f-f5c24503bc54","date":"2026-09-15T12:11","age":28,"mix":"54","loc":"L05","machine":"23119","user":"Person_02148","load":38954.6,"stress":3099.9,"ramp":23.11},{"id":"8921c9a1","sample":"8-12-26-SS-2","setId":"da972e80-965a-11f1-8b2d-d9efcea6b46a","date":"2026-08-19T15:22","age":7,"mix":"175","loc":"L06","machine":"23119","user":"Person_02148","load":50818.63,"stress":4044.0,"ramp":33.61},{"id":"8e9898e0","sample":"8/14/26 AP-3 ","setId":"da1adad2-9a45-11f1-b9a9-3ba7c2460121","date":"2026-09-11T12:52","age":28,"mix":"5","loc":"L08","machine":"23119","user":"Person_02148","load":61068.58,"stress":4859.7,"ramp":34.73},{"id":"a49b784d","sample":"8/5/26-1-BP","setId":"56eb0ca0-90d3-11f1-b8c8-c181a5634d97","date":"2026-08-12T16:09","age":7,"mix":"2","loc":"L01","machine":"23119","user":"Person_02148","load":52009.78,"stress":4138.8,"ramp":22.34},{"id":"b87cbae7","sample":"8-11-26-2-AL","setId":"c70675d1-95b3-11f1-9ebd-b7b877cf4ea0","date":"2026-09-08T18:18","age":28,"mix":"31","loc":"L12","machine":"23119","user":"Person_02148","load":38164.08,"stress":3037.0,"ramp":34.67},{"id":"e858c0ae","sample":"8/10/26-mg-1","setId":"77d8cbe1-94ee-11f1-ab06-67de526d6dcd","date":"2026-09-08T12:57","age":28,"mix":"66","loc":"L07","machine":"23119","user":"Person_02148","load":70195.3,"stress":5586.0,"ramp":9.46},{"id":"fabf7f8a","sample":"5K HP","setId":"66a271c1-9717-11f1-b643-5f9a060fabd2","date":"2026-09-10T13:37","age":28,"mix":"13","loc":"L18","machine":"24059","user":"Person_02148","load":80832.57,"stress":6432.5,"ramp":40.54},{"id":"fb351a84","sample":"8-11-26-2-AL","setId":"c70675d0-95b3-11f1-9ebd-b7b877cf4ea0","date":"2026-08-18T14:14","age":7,"mix":"31","loc":"L12","machine":"23119","user":"Person_02148","load":28709.09,"stress":2284.6,"ramp":32.36},{"id":"01bd4536","sample":"8/14/26 AP-3 ","setId":"da1adad0-9a45-11f1-b9a9-3ba7c2460121","date":"2026-08-21T12:40","age":7,"mix":"5","loc":"L08","machine":"23119","user":"Person_02148","load":50987.68,"stress":4077.8,"ramp":34.85},{"id":"0aeedd8c","sample":"8-11-26-2-AL","setId":"c70675d1-95b3-11f1-9ebd-b7b877cf4ea0","date":"2026-09-08T18:16","age":28,"mix":"31","loc":"L12","machine":"23119","user":"Person_02148","load":37292.55,"stress":2967.6,"ramp":21.35},{"id":"19a6030e","sample":"JW-2","setId":"c13186d1-9bf4-11f1-aecc-bfd77775a486","date":"2026-09-16T12:20","age":28,"mix":"13","loc":"L18","machine":"24059","user":"Person_02148","load":64449.96,"stress":5128.8,"ramp":33.67},{"id":"200a222d","sample":"8-12-26-SS-2","setId":"da972e81-965a-11f1-8b2d-d9efcea6b46a","date":"2026-09-09T12:23","age":28,"mix":"175","loc":"L06","machine":"23119","user":"Person_02148","load":63928.14,"stress":5087.2,"ramp":34.6},{"id":"2d35fc36","sample":"8-6-1-ig","setId":"67ae9001-9184-11f1-85d1-7dd7122dd963","date":"2026-09-03T13:37","age":28,"mix":"3","loc":"L04","machine":"23119","user":"Person_02148","load":55375.61,"stress":4406.7,"ramp":34.11},{"id":"2feb53b8","sample":"8/6/2026 MW2","setId":"66e577b0-9576-11f1-bae7-3912a3c0c84b","date":"2026-08-13T15:14","age":7,"mix":"13","loc":"L19","machine":"24059","user":"Person_02148","load":63020.19,"stress":5015.0,"ramp":44.08},{"id":"58925626","sample":"JW-2","setId":"c13186d1-9bf4-11f1-aecc-bfd77775a486","date":"2026-09-16T12:22","age":28,"mix":"13","loc":"L18","machine":"24059","user":"Person_02148","load":63771.32,"stress":5074.8,"ramp":34.56},{"id":"62cb17f8","sample":"8/14/26-JS-1","setId":"6afbc8a0-9a6b-11f1-b2fd-37bcb462fc81","date":"2026-09-11T13:46","age":28,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":38596.49,"stress":3071.4,"ramp":32.78},{"id":"65b85e3a","sample":"8-10-26-1-AL","setId":"8a1944a1-94d6-11f1-833c-35f002e28f08","date":"2026-09-08T14:38","age":28,"mix":"30","loc":"L02","machine":"23119","user":"Person_02148","load":37908.53,"stress":3016.7,"ramp":32.32},{"id":"73b188ad","sample":"8-10-1-ig","setId":"0646c3b0-94ad-11f1-9b6d-c76debf0ee11","date":"2026-08-17T14:21","age":7,"mix":"9","loc":"L17","machine":"23119","user":"Person_02148","load":19265.02,"stress":1540.8,"ramp":33.04},{"id":"75349c7b","sample":"DE 8/6/26 1","setId":"0d83c0f0-920b-11f1-8da5-35aa80e833a7","date":"2026-09-03T12:34","age":28,"mix":"6","loc":"L09","machine":"23119","user":"Person_02148","load":35566.8,"stress":2830.3,"ramp":14.7},{"id":"7d19bc7c","sample":"8/19/26-2-BP","setId":"572de3b0-9be4-11f1-8e75-1f8510e1af5f","date":"2026-08-26T15:27","age":7,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":27332.73,"stress":2175.1,"ramp":28.49},{"id":"81ea12dc","sample":"Max-2-J&E ","setId":"8711baf1-da58-4074-853d-152007e71d5e","date":"2026-08-14T16:57","age":7,"mix":"92","loc":"L03","machine":"23119","user":"Person_02148","load":27203.57,"stress":2175.7,"ramp":-32.9},{"id":"843ed6c0","sample":"8/14/26-JS-2","setId":"4e54ecd1-9a6c-11f1-b2fd-37bcb462fc81","date":"2026-09-11T14:10","age":28,"mix":"5","loc":"L08","machine":"23119","user":"Person_02148","load":61484.95,"stress":4892.8,"ramp":34.67},{"id":"88720691","sample":"Max-2-J&E ","setId":"c82d46c4-351a-4299-89a0-468d575c8610","date":"2026-09-04T15:13","age":28,"mix":"92","loc":"L03","machine":"23119","user":"Person_02148","load":67769.42,"stress":5392.9,"ramp":34.64},{"id":"8b3a1e0d","sample":"8/7/26-JS-(1)","setId":"d0a80b70-97fd-11f1-a2e5-d7d51f8b242e","date":"2026-08-17T16:27","age":7,"mix":"120","loc":"L16","machine":"24059","user":"Person_02148","load":65209.16,"stress":5189.2,"ramp":21.85},{"id":"8cf84304","sample":"8-12-2-ig","setId":"8f858551-966d-11f1-ac3e-e161c2e7416c","date":"2026-09-09T13:02","age":28,"mix":"3","loc":"L09","machine":"23119","user":"Person_02148","load":52473.26,"stress":4175.7,"ramp":31.19},{"id":"91b9b07b","sample":"8/14/26 MW1","setId":"60885921-9a47-11f1-9efb-cb83d21cdb23","date":"2026-09-11T13:16","age":28,"mix":"66","loc":"L07","machine":"23119","user":"Person_02148","load":67700.81,"stress":5387.5,"ramp":34.47},{"id":"9e1ff9f6","sample":"8/7/26-JS-2","setId":"5e7063e0-97fd-11f1-a2e5-d7d51f8b242e","date":"2026-09-08T19:35","age":28,"mix":"120","loc":"L16","machine":"24059","user":"Person_02148","load":87098.25,"stress":6931.1,"ramp":36.21},{"id":"a05f6e43","sample":"8/12/26 AP-2","setId":"2df47471-9688-11f1-8b24-1d8bc4a95c53","date":"2026-09-08T18:58","age":26,"mix":"13","loc":"L10","machine":"24059","user":"Person_02148","load":77461.17,"stress":6164.2,"ramp":31.91},{"id":"a174153c","sample":"8-11-26-2-AL","setId":"c70675d1-95b3-11f1-9ebd-b7b877cf4ea0","date":"2026-09-08T18:22","age":28,"mix":"31","loc":"L12","machine":"23119","user":"Person_02148","load":39836.62,"stress":3170.1,"ramp":33.72},{"id":"a3259c0e","sample":"8/5/26-DR-1","setId":"6de84241-489c-46c0-93b6-30ed5fb54c54","date":"2026-08-19T17:53","age":14,"mix":"13","loc":"L20","machine":"23119","user":"Person_02148","load":60294.11,"stress":4798.1,"ramp":30.64},{"id":"acdc4cb5","sample":"DE-1 HP","setId":"8b850da1-971b-11f1-b643-5f9a060fabd2","date":"2026-09-10T13:27","age":28,"mix":"5","loc":"L18","machine":"24059","user":"Person_02148","load":90847.06,"stress":7229.4,"ramp":37.78},{"id":"b15959a7","sample":"8-10-26-1-AL","setId":"8a1944a1-94d6-11f1-833c-35f002e28f08","date":"2026-09-08T14:35","age":28,"mix":"30","loc":"L02","machine":"23119","user":"Person_02148","load":39589.23,"stress":3150.4,"ramp":30.96},{"id":"b28ba808","sample":"8/12/26 AP-2","setId":"2df47472-9688-11f1-8b24-1d8bc4a95c53","date":"2026-09-08T19:01","age":28,"mix":"13","loc":"L10","machine":"24059","user":"Person_02148","load":82132.78,"stress":6535.9,"ramp":114.72},{"id":"c0f9b18e","sample":"Max-2-J&E ","setId":"8711baf1-da58-4074-853d-152007e71d5e","date":"2026-08-14T16:55","age":7,"mix":"92","loc":"L03","machine":"23119","user":"Person_02148","load":52813.53,"stress":4202.8,"ramp":34.83},{"id":"e09e903a","sample":"8-12-26-SS-2","setId":"da972e80-965a-11f1-8b2d-d9efcea6b46a","date":"2026-08-19T15:24","age":7,"mix":"175","loc":"L06","machine":"23119","user":"Person_02148","load":54254.69,"stress":4339.1,"ramp":34.71},{"id":"e49de715","sample":"8/19/26-2-BP","setId":"572de3b0-9be4-11f1-8e75-1f8510e1af5f","date":"2026-08-26T15:29","age":7,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":26917.99,"stress":2142.1,"ramp":21.6},{"id":"02f6060a","sample":"8-5-26-SS-2","setId":"e5cef5f0-90cc-11f1-8bd5-87b666a243a4","date":"2026-08-12T14:24","age":7,"mix":"13","loc":"L17","machine":"23119","user":"Person_02148","load":57649.12,"stress":4680.7,"ramp":34.89},{"id":"0d3c91d7","sample":"8-12-26-SS-1","setId":"5a6f94b0-9653-11f1-a231-9b83b854fa8c","date":"2026-08-19T15:18","age":7,"mix":"175","loc":"L06","machine":"23119","user":"Person_02148","load":45168.07,"stress":3612.4,"ramp":23.92},{"id":"0f21e78c","sample":"8-12-2-ig","setId":"8f858551-966d-11f1-ac3e-e161c2e7416c","date":"2026-09-09T13:04","age":28,"mix":"3","loc":"L09","machine":"23119","user":"Person_02148","load":55454.77,"stress":4413.0,"ramp":34.47},{"id":"0fa6d917","sample":"JW-1 8/5","setId":"993f80f1-9672-11f1-b643-5f9a060fabd2","date":"2026-09-02T13:45","age":28,"mix":"65","loc":"L22","machine":"24059","user":"Person_02148","load":72774.01,"stress":5791.2,"ramp":32.12},{"id":"34f6a099","sample":"8-6-2-ig","setId":"916b1491-9193-11f1-991b-91b3adacd334","date":"2026-09-03T12:56","age":28,"mix":"3","loc":"L04","machine":"23119","user":"Person_02148","load":60300.64,"stress":4798.6,"ramp":34.42},{"id":"3d78fb18","sample":"8/10/26-mg-1","setId":"77d8cbe1-94ee-11f1-ab06-67de526d6dcd","date":"2026-09-08T12:53","age":28,"mix":"66","loc":"L07","machine":"23119","user":"Person_02148","load":71230.83,"stress":5668.4,"ramp":34.61},{"id":"436c0061","sample":"8/10/26-mg-2","setId":"f793cff1-94ef-11f1-ab06-67de526d6dcd","date":"2026-09-08T13:32","age":28,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":38871.25,"stress":3093.3,"ramp":32.71},{"id":"437903ce","sample":"JW-2","setId":"c13186d0-9bf4-11f1-aecc-bfd77775a486","date":"2026-08-28T14:45","age":7,"mix":"13","loc":"L18","machine":"24059","user":"Person_02148","load":49934.29,"stress":3973.6,"ramp":33.84},{"id":"48968b0e","sample":"8/19/26-1-BP","setId":"eed82661-9bcd-11f1-8e75-1f8510e1af5f","date":"2026-09-15T18:26","age":28,"mix":"4","loc":"L21","machine":"23119","user":"Person_02148","load":55167.77,"stress":4390.1,"ramp":34.25},{"id":"4d54946a","sample":"8/6/2026 MW2","setId":"66e577b0-9576-11f1-bae7-3912a3c0c84b","date":"2026-08-13T15:19","age":7,"mix":"13","loc":"L19","machine":"24059","user":"Person_02148","load":61788.79,"stress":4917.0,"ramp":30.71},{"id":"5601da66","sample":"8/14/26-JS-2","setId":"4e54ecd0-9a6c-11f1-b2fd-37bcb462fc81","date":"2026-08-21T13:51","age":7,"mix":"5","loc":"L08","machine":"23119","user":"Person_02148","load":47120.12,"stress":3749.7,"ramp":34.56},{"id":"64c9420e","sample":"8/11/26 AP-1","setId":"a18c18b0-95ad-11f1-bb5a-8775b0452794","date":"2026-08-18T14:19","age":7,"mix":"13","loc":"L12","machine":"23119","user":"Person_02148","load":49990.73,"stress":3978.1,"ramp":34.44},{"id":"66ceea94","sample":"8/10/26-2\u2013BP","setId":"ae04d881-94e9-11f1-a64b-bffd7202f696","date":"2026-09-08T13:40","age":28,"mix":"2","loc":"L08","machine":"23119","user":"Person_02148","load":57465.75,"stress":4573.0,"ramp":34.54},{"id":"6b024c17","sample":"8-17-26-SS-1","setId":"b2ce3710-9a31-11f1-aa4d-7fc58e24c4f5","date":"2026-08-24T15:39","age":7,"mix":"13","loc":"L17","machine":"23119","user":"Person_02148","load":49828.78,"stress":3965.2,"ramp":28.9},{"id":"744c636c","sample":"8-6-2-ig","setId":"916b1491-9193-11f1-991b-91b3adacd334","date":"2026-09-03T12:50","age":28,"mix":"3","loc":"L04","machine":"23119","user":"Person_02148","load":58075.43,"stress":4621.5,"ramp":34.73},{"id":"78c92363","sample":"8/14/26 MW1","setId":"60885921-9a47-11f1-9efb-cb83d21cdb23","date":"2026-09-11T13:13","age":28,"mix":"66","loc":"L07","machine":"23119","user":"Person_02148","load":67655.37,"stress":5383.8,"ramp":34.65},{"id":"7dbdea60","sample":"8/5/26-1-BP","setId":"56eb0ca1-90d3-11f1-b8c8-c181a5634d97","date":"2026-09-02T13:01","age":28,"mix":"2","loc":"L01","machine":"23119","user":"Person_02148","load":70381.25,"stress":5600.8,"ramp":34.65},{"id":"893ead62","sample":"8/18/26-DR-1","setId":"1c9fc814-6dc3-4d43-9142-34a4958ae509","date":"2026-09-15T12:36","age":28,"mix":"201","loc":"L15","machine":"23119","user":"Person_02148","load":29743.89,"stress":2366.9,"ramp":31.31},{"id":"8e6958f6","sample":"8/7/26-JS-2","setId":"5e703cd0-97fd-11f1-a2e5-d7d51f8b242e","date":"2026-08-17T16:41","age":7,"mix":"120","loc":"L16","machine":"24059","user":"Person_02148","load":71560.25,"stress":5694.6,"ramp":39.24},{"id":"953319f0","sample":"8/14/26 MW2","setId":"fbfd8f10-9a47-11f1-9efb-cb83d21cdb23","date":"2026-09-11T14:01","age":28,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":38499.34,"stress":3063.7,"ramp":24.07},{"id":"a2dd9400","sample":"8-6-1-ig","setId":"67ae9001-9184-11f1-85d1-7dd7122dd963","date":"2026-09-03T13:29","age":28,"mix":"3","loc":"L04","machine":"23119","user":"Person_02148","load":59340.74,"stress":4722.2,"ramp":34.69},{"id":"af6fe776","sample":"8/14/26 MW3","setId":"f36ce980-9a48-11f1-9efb-cb83d21cdb23","date":"2026-08-21T12:36","age":7,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":26346.27,"stress":2107.1,"ramp":21.56},{"id":"b149fa30","sample":"8/10/26-mg-1","setId":"77d8cbe0-94ee-11f1-ab06-67de526d6dcd","date":"2026-08-17T14:26","age":7,"mix":"66","loc":"L07","machine":"23119","user":"Person_02148","load":51879.74,"stress":4128.5,"ramp":34.68},{"id":"bb4f5c4d","sample":"DE 8/6/26 2","setId":"12ba7b32-920c-11f1-8da5-35aa80e833a7","date":"2026-09-03T12:39","age":28,"mix":"6","loc":"L09","machine":"23119","user":"Person_02148","load":33984.01,"stress":2704.4,"ramp":11.82},{"id":"d489a683","sample":"8/14/26 MW2","setId":"fbfd6800-9a47-11f1-9efb-cb83d21cdb23","date":"2026-08-21T13:45","age":7,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":26627.44,"stress":2118.9,"ramp":21.15},{"id":"d4e50c26","sample":"AP 8/6/26 2","setId":"bd420780-920c-11f1-8da5-35aa80e833a7","date":"2026-08-13T18:30","age":7,"mix":"6","loc":"L09","machine":"23119","user":"Person_02148","load":22299.67,"stress":1774.6,"ramp":21.21},{"id":"dca495d8","sample":"8-18-1-ig","setId":"2d8db111-9b22-11f1-b92f-f5c24503bc54","date":"2026-09-15T12:08","age":28,"mix":"54","loc":"L05","machine":"23119","user":"Person_02148","load":38224.58,"stress":3041.8,"ramp":26.92},{"id":"dcdebff6","sample":"8/14/26 AP-3 ","setId":"da1adad2-9a45-11f1-b9a9-3ba7c2460121","date":"2026-09-11T12:55","age":28,"mix":"5","loc":"L08","machine":"23119","user":"Person_02148","load":62580.06,"stress":4980.0,"ramp":34.59},{"id":"f5842ecf","sample":"JW5K","setId":"a0b3fa21-9bed-11f1-aecc-bfd77775a486","date":"2026-09-16T12:33","age":28,"mix":"13","loc":"L18","machine":"24059","user":"Person_02148","load":82215.02,"stress":6542.5,"ramp":35.91},{"id":"fbd652cd","sample":"8-12-26-SS-1","setId":"5a6f94b1-9653-11f1-a231-9b83b854fa8c","date":"2026-09-09T12:55","age":28,"mix":"175","loc":"L06","machine":"23119","user":"Person_02148","load":58399.52,"stress":4647.3,"ramp":34.74},{"id":"fc382b81","sample":"8-5-26-SS-2","setId":"e5cef5f1-90cc-11f1-8bd5-87b666a243a4","date":"2026-09-02T12:45","age":28,"mix":"13","loc":"L17","machine":"23119","user":"Person_02148","load":71165.06,"stress":5663.1,"ramp":34.75},{"id":"0bdd1ed4","sample":"8/19/26-1-BP","setId":"eed82661-9bcd-11f1-8e75-1f8510e1af5f","date":"2026-09-15T18:22","age":28,"mix":"4","loc":"L21","machine":"23119","user":"Person_02148","load":55164.88,"stress":4389.9,"ramp":34.14},{"id":"140450a0","sample":"8/14/26 MW3","setId":"f36ce981-9a48-11f1-9efb-cb83d21cdb23","date":"2026-09-11T12:27","age":28,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":38447.35,"stress":3059.5,"ramp":25.75},{"id":"173dbce0","sample":"DE 8/6/26 1","setId":"0d83c0f0-920b-11f1-8da5-35aa80e833a7","date":"2026-09-03T12:27","age":28,"mix":"6","loc":"L09","machine":"23119","user":"Person_02148","load":36157.28,"stress":2877.3,"ramp":13.34},{"id":"19f37dc0","sample":"8/18/26-DR-3","setId":"e4fad865-45fd-42cb-ac7f-3bcc52c3b158","date":"2026-08-25T14:29","age":7,"mix":"201","loc":"L15","machine":"23119","user":"Person_02148","load":71737.52,"stress":5708.7,"ramp":34.73},{"id":"233d8564","sample":"8/10/26-mg-1","setId":"77d8cbe0-94ee-11f1-ab06-67de526d6dcd","date":"2026-08-17T14:28","age":7,"mix":"66","loc":"L07","machine":"23119","user":"Person_02148","load":48715.16,"stress":3896.1,"ramp":17.59},{"id":"26f0e561","sample":"8/6/2026 MW2","setId":"66e577b1-9576-11f1-bae7-3912a3c0c84b","date":"2026-09-03T18:45","age":28,"mix":"13","loc":"L19","machine":"24059","user":"Person_02148","load":73535.94,"stress":5851.8,"ramp":38.65},{"id":"2c9d25de","sample":"8/5/26-DR-2","setId":"435bfaf0-d85c-4a7e-a127-8871943dcd0c","date":"2026-09-02T14:27","age":28,"mix":"13","loc":"L20","machine":"23119","user":"Person_02148","load":88376.76,"stress":7032.8,"ramp":34.75},{"id":"2f30e98c","sample":"8/5/26-DR-1","setId":"d1999e7f-79d5-4e97-9b0a-9c3c18e82464","date":"2026-08-07T19:20","age":3,"mix":"13","loc":"L20","machine":"23119","user":"Person_02148","load":41857.11,"stress":3330.9,"ramp":34.75},{"id":"329b3faf","sample":"8-10-1-ig","setId":"0646c3b1-94ad-11f1-9b6d-c76debf0ee11","date":"2026-09-08T12:47","age":28,"mix":"9","loc":"L17","machine":"23119","user":"Person_02148","load":27387.7,"stress":2179.4,"ramp":32.85},{"id":"340e2cb7","sample":"8-12-26-SS-1","setId":"5a6f94b0-9653-11f1-a231-9b83b854fa8c","date":"2026-08-19T15:15","age":7,"mix":"175","loc":"L06","machine":"23119","user":"Person_02148","load":45181.87,"stress":3631.7,"ramp":34.82},{"id":"352fcd4c","sample":"JW-2","setId":"c13186d1-9bf4-11f1-aecc-bfd77775a486","date":"2026-09-16T12:17","age":28,"mix":"13","loc":"L18","machine":"24059","user":"Person_02148","load":65981.45,"stress":5250.6,"ramp":10.83},{"id":"45620fd7","sample":"8/13/26-AC-1","setId":"70916201-97ca-11f1-a295-912870efd1e4","date":"2026-09-10T12:22","age":28,"mix":"66","loc":"L07","machine":"23119","user":"Person_02148","load":65833.62,"stress":5238.9,"ramp":34.63},{"id":"460a94c6","sample":"8/14/26-JS-2","setId":"4e54ecd1-9a6c-11f1-b2fd-37bcb462fc81","date":"2026-09-11T14:07","age":28,"mix":"5","loc":"L08","machine":"23119","user":"Person_02148","load":62700.37,"stress":4989.5,"ramp":34.67},{"id":"479a7e0c","sample":"8/18/26-DR-1","setId":"1c9fc814-6dc3-4d43-9142-34a4958ae509","date":"2026-09-15T12:30","age":28,"mix":"201","loc":"L15","machine":"23119","user":"Person_02148","load":28127.1,"stress":2238.3,"ramp":31.5},{"id":"47b0d1f3","sample":"8-10-26-1-AL","setId":"8a1944a0-94d6-11f1-833c-35f002e28f08","date":"2026-08-17T14:44","age":7,"mix":"30","loc":"L02","machine":"23119","user":"Person_02148","load":29182.22,"stress":2333.9,"ramp":25.73},{"id":"49620328","sample":"8/19/26-1-BP","setId":"eed82660-9bcd-11f1-8e75-1f8510e1af5f","date":"2026-08-26T15:23","age":7,"mix":"4","loc":"L21","machine":"23119","user":"Person_02148","load":44612.14,"stress":3550.1,"ramp":34.61},{"id":"55f76470","sample":"DE-1 HP","setId":"8b850da0-971b-11f1-b643-5f9a060fabd2","date":"2026-08-19T14:49","age":7,"mix":"5","loc":"L18","machine":"24059","user":"Person_02148","load":65650.82,"stress":5224.3,"ramp":34.85},{"id":"5cbad64a","sample":"8/12/26 AP-2","setId":"2df47470-9688-11f1-8b24-1d8bc4a95c53","date":"2026-08-19T17:15","age":7,"mix":"13","loc":"L10","machine":"24059","user":"Person_02148","load":59535.04,"stress":4737.6,"ramp":31.27},{"id":"6030e3d9","sample":"8/19/26-1-BP","setId":"eed82661-9bcd-11f1-8e75-1f8510e1af5f","date":"2026-09-15T18:24","age":28,"mix":"4","loc":"L21","machine":"23119","user":"Person_02148","load":56480.42,"stress":4494.6,"ramp":34.54},{"id":"6b9f292a","sample":"8-5-26-SS-2","setId":"e5cef5f1-90cc-11f1-8bd5-87b666a243a4","date":"2026-09-02T12:51","age":28,"mix":"13","loc":"L17","machine":"23119","user":"Person_02148","load":68234.45,"stress":5429.9,"ramp":34.7},{"id":"72340bc0","sample":"8/5/26-AC-1","setId":"68e4aa91-917a-11f1-a837-57e996db0cca","date":"2026-09-02T12:27","age":28,"mix":"31","loc":"L09","machine":"23119","user":"Person_02148","load":60647.14,"stress":4826.1,"ramp":34.61},{"id":"7eb22ca6","sample":"8/6/2026 MW2","setId":"66e577b1-9576-11f1-bae7-3912a3c0c84b","date":"2026-09-03T18:40","age":28,"mix":"13","loc":"L19","machine":"24059","user":"Person_02148","load":74762.69,"stress":5949.4,"ramp":38.39},{"id":"86af1588","sample":"5K HP","setId":"66a271c1-9717-11f1-b643-5f9a060fabd2","date":"2026-09-10T13:34","age":28,"mix":"13","loc":"L18","machine":"24059","user":"Person_02148","load":76771.56,"stress":6109.3,"ramp":38.17},{"id":"8b17d348","sample":"8/14/26 MW1","setId":"60885920-9a47-11f1-9efb-cb83d21cdb23","date":"2026-08-21T12:58","age":7,"mix":"66","loc":"L07","machine":"23119","user":"Person_02148","load":52276.28,"stress":4180.9,"ramp":34.26},{"id":"8cd34fcf","sample":"8/5/26-DR-2","setId":"435bfaf0-d85c-4a7e-a127-8871943dcd0c","date":"2026-09-02T14:33","age":28,"mix":"13","loc":"L20","machine":"23119","user":"Person_02148","load":94146.08,"stress":7491.9,"ramp":34.8},{"id":"8f76bb61","sample":"8/18/26-DR-3","setId":"979ab2c7-4b1a-44be-bf01-71a30fd312ad","date":"2026-09-15T13:16","age":28,"mix":"201","loc":"L15","machine":"23119","user":"Person_02148","load":95167.75,"stress":7573.2,"ramp":34.81},{"id":"99f14c25","sample":"8-18-1-ig","setId":"2d8db110-9b22-11f1-b92f-f5c24503bc54","date":"2026-08-25T12:04","age":7,"mix":"54","loc":"L05","machine":"23119","user":"Person_02148","load":26078.47,"stress":2075.3,"ramp":23.96},{"id":"9fc78e57","sample":"8-12-26-SS-1","setId":"5a6f94b1-9653-11f1-a231-9b83b854fa8c","date":"2026-09-09T12:58","age":28,"mix":"175","loc":"L06","machine":"23119","user":"Person_02148","load":54018.81,"stress":4298.7,"ramp":16.1},{"id":"a096cdd6","sample":"JW-1 8/5","setId":"993f80f1-9672-11f1-b643-5f9a060fabd2","date":"2026-09-02T13:40","age":28,"mix":"65","loc":"L22","machine":"24059","user":"Person_02148","load":74152.08,"stress":5900.8,"ramp":30.88},{"id":"a2f4c6e2","sample":"8/14/26-JS-1","setId":"6afbc8a0-9a6b-11f1-b2fd-37bcb462fc81","date":"2026-09-11T13:43","age":28,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":37050.9,"stress":2948.4,"ramp":31.01},{"id":"aee7df77","sample":"8-5-26-SS-1","setId":"37d16140-90c2-11f1-91eb-e72177c729ad","date":"2026-08-12T13:22","age":7,"mix":"13","loc":"L17","machine":"23119","user":"Person_02148","load":54354.26,"stress":4325.4,"ramp":34.64},{"id":"bc6f6313","sample":"8/5/26-DR-1","setId":"e6e8e477-c551-4ebb-ba9a-854b7c1f796c","date":"2026-08-12T18:52","age":7,"mix":"13","loc":"L20","machine":"23119","user":"Person_02148","load":55553.88,"stress":4420.8,"ramp":34.87},{"id":"c07c2b20","sample":"5K HP","setId":"66a271c0-9717-11f1-b643-5f9a060fabd2","date":"2026-08-24T12:59","age":7,"mix":"13","loc":"L18","machine":"24059","user":"Person_02148","load":65126.92,"stress":5182.6,"ramp":21.39},{"id":"c0ecb0d0","sample":"8/18/26-DR-2","setId":"c1f0b7ee-4d8f-4bc5-bad0-847479cf1590","date":"2026-09-15T12:49","age":28,"mix":"201","loc":"L15","machine":"23119","user":"Person_02148","load":69046.7,"stress":5494.6,"ramp":34.72},{"id":"c733bc76","sample":"8/14/26 AP-3 ","setId":"da1adad2-9a45-11f1-b9a9-3ba7c2460121","date":"2026-09-11T13:02","age":28,"mix":"5","loc":"L08","machine":"23119","user":"Person_02148","load":64138.98,"stress":5104.0,"ramp":34.68},{"id":"ca1f90b2","sample":"8/6/26-MG-1","setId":"e6233677-4eda-45a0-946b-f3dc58403785","date":"2026-09-03T13:44","age":28,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":39019.84,"stress":3105.1,"ramp":30.38},{"id":"e05bfe8b","sample":"DE 8/6/26 1","setId":"0d8399e0-920b-11f1-8da5-35aa80e833a7","date":"2026-08-13T13:39","age":7,"mix":"6","loc":"L09","machine":"23119","user":"Person_02148","load":24267.06,"stress":1931.1,"ramp":17.91},{"id":"f34969ef","sample":"8-17-26-SS-1","setId":"b2ce3711-9a31-11f1-aa4d-7fc58e24c4f5","date":"2026-09-14T12:33","age":28,"mix":"13","loc":"L17","machine":"23119","user":"Person_02148","load":61875.05,"stress":4923.9,"ramp":34.65},{"id":"f41ea5a1","sample":"8-17-26-SS-2","setId":"9f76a1a1-9a4c-11f1-9455-359f830ff6ea","date":"2026-09-14T12:45","age":28,"mix":"13","loc":"L17","machine":"23119","user":"Person_02148","load":70525.18,"stress":5612.2,"ramp":34.62},{"id":"f777540f","sample":"8/18/26-DR-2","setId":"c1f0b7ee-4d8f-4bc5-bad0-847479cf1590","date":"2026-09-15T12:55","age":28,"mix":"201","loc":"L15","machine":"23119","user":"Person_02148","load":70774.7,"stress":5632.1,"ramp":34.65},{"id":"04e2967e","sample":"DE-2-Cleo Powell order 33","setId":"5a6d1941-973b-11f1-9db8-e92608ce54a3","date":"2026-09-10T12:29","age":28,"mix":"108","loc":"L13","machine":"23119","user":"Person_02148","load":41549.23,"stress":3306.4,"ramp":28.62},{"id":"05e6ff4a","sample":"8/5/26-AC-1","setId":"68e4aa90-917a-11f1-a837-57e996db0cca","date":"2026-08-12T13:14","age":7,"mix":"31","loc":"L09","machine":"23119","user":"Person_02148","load":49522.12,"stress":3940.8,"ramp":34.84},{"id":"096b8c86","sample":"8-5-26-SS-1","setId":"37d16141-90c2-11f1-91eb-e72177c729ad","date":"2026-09-02T12:38","age":28,"mix":"13","loc":"L17","machine":"23119","user":"Person_02148","load":70485.29,"stress":5609.0,"ramp":34.74},{"id":"11452820","sample":"8-6-2-ig","setId":"916b1490-9193-11f1-991b-91b3adacd334","date":"2026-08-13T14:02","age":7,"mix":"3","loc":"L04","machine":"23119","user":"Person_02148","load":41845.41,"stress":3330.0,"ramp":34.13},{"id":"179f6957","sample":"AP 8/6/26 2","setId":"bd420782-920c-11f1-8da5-35aa80e833a7","date":"2026-09-03T16:20","age":28,"mix":"6","loc":"L09","machine":"23119","user":"Person_02148","load":34763.93,"stress":2766.4,"ramp":22.84},{"id":"3c8ca2c0","sample":"8/14/26-AC-1","setId":"96c27380-9a16-11f1-a355-81694a425efe","date":"2026-08-21T13:29","age":7,"mix":"66","loc":"L07","machine":"23119","user":"Person_02148","load":55500.02,"stress":4438.7,"ramp":34.45},{"id":"40a76ae7","sample":"8-10-1-ig","setId":"0646c3b1-94ad-11f1-9b6d-c76debf0ee11","date":"2026-09-08T12:41","age":28,"mix":"9","loc":"L17","machine":"23119","user":"Person_02148","load":26414.72,"stress":2102.0,"ramp":22.81},{"id":"51b612a6","sample":"8/5/26-1-BP","setId":"56eb0ca1-90d3-11f1-b8c8-c181a5634d97","date":"2026-09-02T12:58","age":28,"mix":"2","loc":"L01","machine":"23119","user":"Person_02148","load":69449.2,"stress":5526.6,"ramp":34.76},{"id":"534c5f50","sample":"DE-2-Cleo Powell order 33","setId":"5a6d1940-973b-11f1-9db8-e92608ce54a3","date":"2026-08-20T14:53","age":7,"mix":"108","loc":"L13","machine":"23119","user":"Person_02148","load":32733.28,"stress":2617.9,"ramp":26.75},{"id":"5dde86bc","sample":"8/14/26-JS-1","setId":"6afbc8a0-9a6b-11f1-b2fd-37bcb462fc81","date":"2026-09-11T13:53","age":28,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":37168.47,"stress":2957.8,"ramp":6.35},{"id":"61d1b7ba","sample":"8/18/26-DR-3","setId":"979ab2c7-4b1a-44be-bf01-71a30fd312ad","date":"2026-09-15T13:11","age":28,"mix":"201","loc":"L15","machine":"23119","user":"Person_02148","load":84972.39,"stress":6761.9,"ramp":34.69},{"id":"68c0e487","sample":"8/14/26 MW2","setId":"fbfd8f10-9a47-11f1-9efb-cb83d21cdb23","date":"2026-09-11T13:55","age":28,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":38197.53,"stress":3039.7,"ramp":33.66},{"id":"72682982","sample":"8/5/26-AC-1","setId":"68e4aa91-917a-11f1-a837-57e996db0cca","date":"2026-09-02T12:24","age":28,"mix":"31","loc":"L09","machine":"23119","user":"Person_02148","load":59584.65,"stress":4741.6,"ramp":34.77},{"id":"77e94f5b","sample":"DE 8/6/26 2","setId":"12ba7b30-920c-11f1-8da5-35aa80e833a7","date":"2026-08-13T13:53","age":7,"mix":"6","loc":"L09","machine":"23119","user":"Person_02148","load":21280.54,"stress":1693.5,"ramp":25.27},{"id":"797f4f8f","sample":"5K HP","setId":"66a271c0-9717-11f1-b643-5f9a060fabd2","date":"2026-08-24T12:52","age":7,"mix":"13","loc":"L18","machine":"24059","user":"Person_02148","load":64989.74,"stress":5171.7,"ramp":26.6},{"id":"89380efa","sample":"8/14/26-AC-1","setId":"96c27381-9a16-11f1-a355-81694a425efe","date":"2026-09-11T13:07","age":28,"mix":"66","loc":"L07","machine":"23119","user":"Person_02148","load":69495.64,"stress":5530.3,"ramp":34.63},{"id":"896fb6ca","sample":"8/11/26 AP-1","setId":"a18c18b2-95ad-11f1-bb5a-8775b0452794","date":"2026-09-08T18:05","age":28,"mix":"13","loc":"L12","machine":"23119","user":"Person_02148","load":69121.16,"stress":5500.5,"ramp":34.7},{"id":"8a6d8a5c","sample":"8-10-26-1-AL","setId":"8a1944a1-94d6-11f1-833c-35f002e28f08","date":"2026-09-08T14:33","age":28,"mix":"30","loc":"L02","machine":"23119","user":"Person_02148","load":38854.69,"stress":3092.0,"ramp":30.26},{"id":"95d9a94e","sample":"8/14/26-AC-1","setId":"96c27381-9a16-11f1-a355-81694a425efe","date":"2026-09-11T13:10","age":28,"mix":"66","loc":"L07","machine":"23119","user":"Person_02148","load":70225.2,"stress":5588.3,"ramp":34.57},{"id":"9a6546b1","sample":"8-12-2-ig","setId":"8f858550-966d-11f1-ac3e-e161c2e7416c","date":"2026-08-19T15:27","age":7,"mix":"3","loc":"L09","machine":"23119","user":"Person_02148","load":38128.1,"stress":3049.4,"ramp":25.97},{"id":"9be529f1","sample":"8/13/26-AC-1","setId":"70916200-97ca-11f1-a295-912870efd1e4","date":"2026-08-20T12:37","age":7,"mix":"66","loc":"L07","machine":"23119","user":"Person_02148","load":53184.43,"stress":4253.5,"ramp":34.46},{"id":"9e3dd816","sample":"8/6/26-MG-1","setId":"e6233677-4eda-45a0-946b-f3dc58403785","date":"2026-09-03T13:41","age":28,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":40226.19,"stress":3201.1,"ramp":28.65},{"id":"a5198000","sample":"8/14/26 AP-3 ","setId":"da1adad0-9a45-11f1-b9a9-3ba7c2460121","date":"2026-08-21T12:44","age":7,"mix":"5","loc":"L08","machine":"23119","user":"Person_02148","load":51648.18,"stress":4130.7,"ramp":34.53},{"id":"ad564ab2","sample":"8/11/26 AP-1","setId":"a18c18b2-95ad-11f1-bb5a-8775b0452794","date":"2026-09-08T18:11","age":28,"mix":"13","loc":"L12","machine":"23119","user":"Person_02148","load":68477.96,"stress":5449.3,"ramp":34.68},{"id":"bc6b6bf2","sample":"8/18/26-DR-3","setId":"8f007044-8b1b-44dc-ae1a-404e2706d1a2","date":"2026-08-21T15:29","age":3,"mix":"201","loc":"L15","machine":"23119","user":"Person_02148","load":57048.69,"stress":4539.8,"ramp":34.88},{"id":"c77b6876","sample":"8/14/26-AC-1","setId":"96c27380-9a16-11f1-a355-81694a425efe","date":"2026-08-21T13:25","age":7,"mix":"66","loc":"L07","machine":"23119","user":"Person_02148","load":53999.13,"stress":4318.7,"ramp":34.6},{"id":"c808c6d8","sample":"8/5/26-DR-2","setId":"8649c92c-b163-4fa1-8574-e419fdc2cbee","date":"2026-08-07T19:18","age":3,"mix":"13","loc":"L20","machine":"23119","user":"Person_02148","load":56704.59,"stress":4512.4,"ramp":33.58},{"id":"ce8407a2","sample":"8/19/26-1-BP","setId":"eed82660-9bcd-11f1-8e75-1f8510e1af5f","date":"2026-08-26T15:25","age":7,"mix":"4","loc":"L21","machine":"23119","user":"Person_02148","load":43006.28,"stress":3422.3,"ramp":28.22},{"id":"da83fe15","sample":"8/7/26-JS-2","setId":"5e7063e0-97fd-11f1-a2e5-d7d51f8b242e","date":"2026-09-08T19:18","age":28,"mix":"120","loc":"L16","machine":"24059","user":"Person_02148","load":85559.22,"stress":6808.6,"ramp":34.53},{"id":"e69bd5de","sample":"8/6/26-MG-1","setId":"e6233677-4eda-45a0-946b-f3dc58403785","date":"2026-09-03T13:39","age":28,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":34527.14,"stress":2747.6,"ramp":14.77},{"id":"e7499902","sample":"JW5K","setId":"a0b3fa21-9bed-11f1-aecc-bfd77775a486","date":"2026-09-16T12:26","age":28,"mix":"13","loc":"L18","machine":"24059","user":"Person_02148","load":86689.77,"stress":6898.6,"ramp":32.24},{"id":"f962fe1a","sample":"8/10/26-mg-2","setId":"f793cff0-94ef-11f1-ab06-67de526d6dcd","date":"2026-08-17T14:48","age":7,"mix":"120","loc":"L05","machine":"23119","user":"Person_02148","load":23496.86,"stress":1879.2,"ramp":19.39},{"id":"1008af9e","sample":"8/14/26 MW1","setId":"60885920-9a47-11f1-9efb-cb83d21cdb23","date":"2026-08-21T12:53","age":7,"mix":"66","loc":"L07","machine":"23119","user":"Person_02148","load":51743.19,"stress":4138.3,"ramp":34.73},{"id":"27e2ebc2","sample":"8-6-1-ig","setId":"67ae9000-9184-11f1-85d1-7dd7122dd963","date":"2026-08-13T13:20","age":7,"mix":"3","loc":"L04","machine":"23119","user":"Person_02148","load":41748.26,"stress":3322.2,"ramp":34.14},{"id":"4f23703c","sample":"8/10/26-2\u2013BP","setId":"ae04d881-94e9-11f1-a64b-bffd7202f696","date":"2026-09-08T13:35","age":28,"mix":"2","loc":"L08","machine":"23119","user":"Person_02148","load":57652.09,"stress":4587.8,"ramp":34.59},{"id":"8a546d60","sample":"8/11/26 AP-1","setId":"a18c18b0-95ad-11f1-bb5a-8775b0452794","date":"2026-08-18T14:17","age":7,"mix":"13","loc":"L12","machine":"23119","user":"Person_02148","load":53157.59,"stress":4230.1,"ramp":34.86},{"id":"b85556f2","sample":"8/10-26-1-BP","setId":"12f1ca21-94c5-11f1-a64b-bffd7202f696","date":"2026-09-08T13:00","age":28,"mix":"5","loc":"L14","machine":"23119","user":"Person_02148","load":63227.61,"stress":5031.5,"ramp":34.71},{"id":"f4e200ee","sample":"8-12-2-ig","setId":"8f858551-966d-11f1-ac3e-e161c2e7416c","date":"2026-09-09T13:07","age":28,"mix":"3","loc":"L09","machine":"23119","user":"Person_02148","load":51186.45,"stress":4073.3,"ramp":33.69}],"machines":[{"serial":"23119","desc":"F-325-VFD","ramDiam":6.75,"cap":325000.0},{"serial":"24059","desc":"TA-1258","ramDiam":6.0,"cap":250000.0}],"cals":[{"serial":"23119","date":"2023-05-03T12:00","p":[-3.05609482861276,1402.94929998811,4886.65217200829,9053.09190589737,22355.92],"f":[0.0,50000.0,175000.0,325000.0,800000.0]},{"serial":"24059","date":"2024-04-08T19:17","p":[0.0,1768.388305664062,4420.970703125,8841.94140625,28294.212890625],"f":[0.0,50000.0,125000.0,250000.0,800000.0]},{"serial":"24059","date":"2024-03-06T11:40","p":[0.0,1768.388256576615,4420.970641441537,8841.941282883074,28294.21210522584],"f":[0.0,50000.0,125000.0,250000.0,800000.0]},{"serial":"23119","date":"2026-05-11T18:24","p":[-3.056094884872437,1402.949340820312,4886.65234375,9053.091796875,22355.919921875],"f":[0.0,50000.0,175000.0,325000.0,800000.0]},{"serial":"24059","date":"2025-11-20T17:22","p":[0.0,1768.388305664062,4420.970703125,8841.94140625,28294.212890625],"f":[0.0,50000.0,125000.0,250000.0,800000.0]},{"serial":"23119","date":"2025-05-06T17:36","p":[-3.056094884872437,1402.949340820312,4886.65234375,9053.091796875,22355.919921875],"f":[0.0,50000.0,175000.0,325000.0,800000.0]},{"serial":"23119","date":"2024-05-07T19:54","p":[-3.056094884872437,1402.949340820312,4886.65234375,9053.091796875,22355.919921875],"f":[0.0,50000.0,175000.0,325000.0,800000.0]}],"tunes":[{"serial":"23119","date":"2023-08-17","prop":0.15,"integral":0.002,"der":0.02,"propSpeed":500.0,"intSpeed":100.0,"derSpeed":0.5},{"serial":"24059","date":"2024-03-06","prop":0.15,"integral":0.005,"der":0.02,"propSpeed":2500.0,"intSpeed":100.0,"derSpeed":0.5}]};
+/*ENDDATA*/
+
+//<LOGIC>
+const DAY=864e5, MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const f0=v=>Number(v).toLocaleString('en-US',{maximumFractionDigits:0});
+const f1=v=>Number(v).toLocaleString('en-US',{minimumFractionDigits:1,maximumFractionDigits:1});
+const fd=ts=>{const d=new Date(ts);return MON[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear()};
+const fp=e=>{const p=e*100,a=Math.abs(p);return (p<0?'\u2212':'+')+(a<10?a.toFixed(1):a.toFixed(0))+'%'};
+const fpp=p=>p<0.001?'< 0.001':p.toFixed(3);
+function median(a){const s=[...a].sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2}
+const mean=a=>a.reduce((x,y)=>x+y,0)/a.length;
+
+function invert(A){
+  const n=A.length,M=A.map((r,i)=>{const row=Array.from(r);for(let j=0;j<n;j++)row.push(i===j?1:0);return row});
+  for(let c=0;c<n;c++){
+    let p=c;for(let r=c+1;r<n;r++)if(Math.abs(M[r][c])>Math.abs(M[p][c]))p=r;
+    [M[c],M[p]]=[M[p],M[c]];const d=M[c][c];if(Math.abs(d)<1e-14)throw new Error('singular');
+    for(let j=0;j<2*n;j++)M[c][j]/=d;
+    for(let r=0;r<n;r++){if(r===c)continue;const f=M[r][c];if(!f)continue;for(let j=0;j<2*n;j++)M[r][j]-=f*M[c][j]}
+  }
+  return M.map(r=>r.slice(n));
+}
+function ols(X,y){
+  const n=X.length,k=X[0].length,A=Array.from({length:k},()=>new Float64Array(k)),v=new Float64Array(k);
+  for(let i=0;i<n;i++){const x=X[i];for(let a=0;a<k;a++){const xa=x[a];if(!xa)continue;v[a]+=xa*y[i];for(let b=a;b<k;b++)A[a][b]+=xa*x[b]}}
+  for(let a=0;a<k;a++){for(let b=0;b<a;b++)A[a][b]=A[b][a];A[a][a]+=1e-9}
+  const Ai=invert(A),b=Array.from({length:k},(_,a)=>{let s=0;for(let c=0;c<k;c++)s+=Ai[a][c]*v[c];return s});
+  const res=X.map((x,i)=>{let s=0;for(let a=0;a<k;a++)s+=x[a]*b[a];return y[i]-s});
+  const sse=res.reduce((s,e)=>s+e*e,0),df=n-k;
+  return{b,Ai,res,df,s2:df>0?sse/df:NaN,n,k};
+}
+/* standard errors that treat each cluster (one sample of concrete) as one independent unit */
+function olsCR(X,y,cl){
+  const f=ols(X,y),k=f.k,n=f.n,groups=new Map();
+  X.forEach((x,i)=>{if(!groups.has(cl[i]))groups.set(cl[i],new Float64Array(k));const s=groups.get(cl[i]);for(let a=0;a<k;a++)s[a]+=x[a]*f.res[i]});
+  const G=groups.size;f.G=G;f.se=null;
+  if(G<2)return f;
+  const M=Array.from({length:k},()=>new Float64Array(k));
+  groups.forEach(s=>{for(let a=0;a<k;a++){if(!s[a])continue;for(let b=0;b<k;b++)M[a][b]+=s[a]*s[b]}});
+  const c=G/(G-1)*(n-1)/Math.max(1,n-k);
+  f.se=Array.from({length:k},(_,a)=>{let v=0;for(let b=0;b<k;b++)for(let d=0;d<k;d++)v+=f.Ai[a][b]*M[b][d]*f.Ai[a][d];return Math.sqrt(Math.max(0,c*v))});
+  return f;
+}
+function tcrit(df){const z=1.959964;return df>0?z+(z**3+z)/(4*df)+(5*z**5+16*z**3+3*z)/(96*df*df):NaN}
+function gammaln(x){const c=[76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,0.1208650973866179e-2,-0.5395239384953e-5];let y=x,t=x+5.5;t-=(x+0.5)*Math.log(t);let s=1.000000000190015;for(const cc of c)s+=cc/++y;return -t+Math.log(2.5066282746310005*s/x)}
+function gammaQ(a,x){
+  if(x<=0)return 1;
+  if(x<a+1){let ap=a,sum=1/a,del=sum;for(let n=0;n<300;n++){ap++;del*=x/ap;sum+=del;if(Math.abs(del)<Math.abs(sum)*1e-13)break}return 1-sum*Math.exp(-x+a*Math.log(x)-gammaln(a))}
+  let b=x+1-a,c=1e300,d=1/b,h=d;
+  for(let i=1;i<300;i++){const an=-i*(i-a);b+=2;d=an*d+b;if(Math.abs(d)<1e-300)d=1e-300;c=b+an/c;if(Math.abs(c)<1e-300)c=1e-300;d=1/d;const del=d*c;h*=del;if(Math.abs(del-1)<1e-13)break}
+  return Math.exp(-x+a*Math.log(x)-gammaln(a))*h;
+}
+const chi2sf=(x,k)=>gammaQ(k/2,x/2);
+const Z={0.8:0.8416,0.9:1.2816,0.95:1.6449};
+
+function levelsByCount(rows,key){
+  const m={};rows.forEach(r=>m[r[key]]=(m[r[key]]||0)+1);
+  return Object.entries(m).sort((a,b)=>b[1]-a[1]||(a[0]<b[0]?-1:1)).map(e=>e[0]);
+}
+/* strength ~ mix + ln(age) + covariates + factor, on ln(strength) */
+function factorModel(rows,key,covKeys){
+  const levels=levelsByCount(rows,key),ref=levels[0];
+  if(levels.length<2)return{levels,ref,effects:[],fit:null};
+  const mixes=[...new Set(rows.map(r=>r.mix))].sort(),useAge=new Set(rows.map(r=>r.age)).size>1;
+  const covs=covKeys.map(ck=>({ck,lv:levelsByCount(rows,ck).slice(1)}));
+  const X=rows.map(r=>{
+    const x=[1];for(let i=1;i<mixes.length;i++)x.push(r.mix===mixes[i]?1:0);
+    if(useAge)x.push(r.la);
+    covs.forEach(c=>c.lv.forEach(l=>x.push(r[c.ck]===l?1:0)));
+    levels.slice(1).forEach(l=>x.push(r[key]===l?1:0));
+    return x;
+  });
+  let fit;try{fit=olsCR(X,rows.map(r=>r.y),rows.map(r=>r.sample))}catch(e){return{levels,ref,effects:[],fit:null,error:true}}
+  const base=X[0].length-(levels.length-1),tc=tcrit(fit.G-1);
+  const effects=levels.slice(1).map((l,i)=>{
+    const b=fit.b[base+i],se=fit.se?fit.se[base+i]:Math.sqrt(fit.s2*fit.Ai[base+i][base+i]),G=fit.G;
+    return{level:l,n:rows.filter(r=>r[key]===l).length,b,se,G,eff:Math.exp(b)-1,lo:Math.exp(b-tc*se)-1,hi:Math.exp(b+tc*se)-1};
+  });
+  return{levels,ref,effects,fit,df:fit.G-1};
+}
+/* effect of `level` against `ref` inside each mix. An interval needs three or more samples on each side. */
+function perMix(rows,key,ref,level){
+  const out=[];
+  [...new Set(rows.map(r=>r.mix))].sort((a,b)=>(+a)-(+b)||(a<b?-1:1)).forEach(mx=>{
+    const sub=rows.filter(r=>r.mix===mx&&(r[key]===ref||r[key]===level)),sr=sub.filter(r=>r[key]===ref),sl=sub.filter(r=>r[key]===level);
+    if(!sr.length||!sl.length)return;
+    const row={mix:mx,nRef:sr.length,nLevel:sl.length,sRef:new Set(sr.map(r=>r.sample)).size,sLevel:new Set(sl.map(r=>r.sample)).size,ok:false,reliable:false};
+    row.reliable=Math.min(row.sRef,row.sLevel)>=3;
+    if(sr.length>=2&&sl.length>=2){
+      const useAge=new Set(sub.map(r=>r.age)).size>1&&sub.length>=5;
+      try{
+        const fit=olsCR(sub.map(r=>{const x=[1];if(useAge)x.push(r.la);x.push(r[key]===level?1:0);return x}),sub.map(r=>r.y),sub.map(r=>r.sample)),i=useAge?2:1;
+        if(fit.df>=2){row.ok=true;row.b=fit.b[i];row.eff=Math.exp(row.b)-1;
+          if(row.reliable&&fit.se){row.se=fit.se[i];const tc=tcrit(fit.G-1);row.lo=Math.exp(row.b-tc*row.se)-1;row.hi=Math.exp(row.b+tc*row.se)-1}}
+      }catch(e){}
+    }
+    out.push(row);
+  });
+  return out;
+}
+function heterogeneity(list){
+  const u=list.filter(r=>r.ok&&r.reliable&&r.se>0);if(u.length<2)return null;
+  const w=u.map(r=>1/(r.se*r.se)),bbar=u.reduce((s,r,i)=>s+w[i]*r.b,0)/w.reduce((a,b)=>a+b,0);
+  const Q=u.reduce((s,r,i)=>s+w[i]*(r.b-bbar)**2,0),df=u.length-1;
+  return{Q,df,p:chi2sf(Q,df),pooled:Math.exp(bbar)-1,m:u.length};
+}
+function overlap(rows,key){
+  const by=(g)=>{const m=new Map();rows.forEach(r=>{if(!m.has(r[g]))m.set(r[g],new Set());m.get(r[g]).add(r[key])});let both=0;m.forEach(s=>{if(s.size>1)both++});return{both,total:m.size}};
+  return{sets:by('setId'),samples:by('sample')};
+}
+function withinSD(rows){
+  const g=new Map();rows.forEach(r=>{if(!g.has(r.setId))g.set(r.setId,[]);g.get(r.setId).push(r.y)});
+  let ss=0,df=0,sets=0;g.forEach(a=>{if(a.length<2)return;const m=mean(a);a.forEach(v=>{ss+=(v-m)**2});df+=a.length-1;sets++});
+  return df>0?{sd:Math.sqrt(ss/df),df,sets,se:Math.sqrt(ss/df)/Math.sqrt(2*df)}:null;
+}
+function weekStart(ts){const d=new Date(ts);d.setHours(0,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7));return d.getTime()}
+function driftFor(rows,P){
+  const g=new Map();rows.forEach(r=>{if(!g.has(r.setId))g.set(r.setId,[]);g.get(r.setId).push(r)});
+  const pts=[...g.values()].map(a=>({setId:a[0].setId,sample:a[0].sample,age:a[0].age,mix:a[0].mix,n:a.length,ts:mean(a.map(r=>r.ts)),res:mean(a.map(r=>r.res))})).sort((a,b)=>a.ts-b.ts);
+  if(pts.length<3)return{pts,enough:false};
+  const center=mean(pts.map(p=>p.res));let mr=0;for(let i=1;i<pts.length;i++)mr+=Math.abs(pts[i].res-pts[i-1].res);
+  const sig=mr/(pts.length-1)/1.128,ucl=center+P.sigma*sig,lcl=center-P.sigma*sig;
+  pts.forEach(p=>{p.rules=[];if(p.res>ucl||p.res<lcl)p.rules.push('beyond limit')});
+  let i=0;while(i<pts.length){let j=i;const s=Math.sign(pts[i].res-center);while(j+1<pts.length&&Math.sign(pts[j+1].res-center)===s)j++;
+    if(s!==0&&j-i+1>=P.run)for(let q=i;q<=j;q++)pts[q].rules.push(`${j-i+1} in a row ${s>0?'above':'below'} centre`);i=j+1}
+  const t0=pts[0].ts,xs=pts.map(p=>(p.ts-t0)/DAY),ys=pts.map(p=>p.res),mx=mean(xs),my=mean(ys);
+  let sxx=0,sxy=0;xs.forEach((x,i)=>{sxx+=(x-mx)**2;sxy+=(x-mx)*(ys[i]-my)});
+  let slope=null,slo=null,shi=null;
+  if(sxx>0&&pts.length>=4){slope=sxy/sxx;const icpt=my-slope*mx,sse=xs.reduce((s,x,i)=>s+(ys[i]-icpt-slope*x)**2,0),se=Math.sqrt(sse/(pts.length-2)/sxx),tc=tcrit(pts.length-2);
+    slo=Math.exp((slope-tc*se)*7)-1;shi=Math.exp((slope+tc*se)*7)-1;slope=Math.exp(slope*7)-1}
+  const wk=new Map();pts.forEach(p=>{const k=weekStart(p.ts);if(!wk.has(k))wk.set(k,[]);wk.get(k).push(p.res)});
+  const weeks=[...wk.entries()].sort((a,b)=>a[0]-b[0]).map(([k,a])=>({start:k,n:a.length,mean:mean(a)}));
+  return{pts,enough:true,center,sig,ucl,lcl,slope,slo,shi,weeks,nOut:pts.filter(p=>p.rules.length).length,nLimit:pts.filter(p=>p.rules.includes('beyond limit')).length};
+}
+function calFor(serial,T,MACH,CALS,TUNE,P){
+  const m=MACH.find(x=>x.serial===serial)||null,tests=T.filter(t=>t.machine===serial);
+  const cs=CALS.filter(c=>c.serial===serial).map(c=>({...c,ts:new Date(c.date).getTime()})).sort((a,b)=>a.ts-b.ts);
+  const area=m&&m.ramDiam?Math.PI*(m.ramDiam/2)**2:null;
+  const recs=cs.map((c,i)=>{
+    const slopes=[];for(let k=0;k<4;k++){const dp=c.p[k+1]-c.p[k],dF=c.f[k+1]-c.f[k];slopes.push(dp>0?dF/dp:null)}
+    const gap=i?Math.round((c.ts-cs[i-1].ts)/DAY):null;
+    return{date:c.date,ts:c.ts,gap,over:gap!=null&&gap>P.calDays,slopes,dev:slopes.map(s=>s!=null&&area?s/area-1:null)};
+  });
+  let over=0,none=0;const age=[];
+  tests.forEach(t=>{let last=null;cs.forEach(c=>{if(c.ts<=t.ts)last=c});if(!last){none++;return}const d=(t.ts-last.ts)/DAY;age.push(d);if(d>P.calDays)over++});
+  const first=tests.length?Math.min(...tests.map(t=>t.ts)):null,lastT=tests.length?Math.max(...tests.map(t=>t.ts)):null,lastCal=cs.length?cs[cs.length-1]:null;
+  let identical=null;
+  if(cs.length>=2){let mx=0;cs.forEach(c=>{for(let k=0;k<5;k++){mx=Math.max(mx,Math.abs(c.p[k]-lastCal.p[k])/Math.max(1,Math.abs(lastCal.p[k])),Math.abs(c.f[k]-lastCal.f[k])/Math.max(1,Math.abs(lastCal.f[k])))}});identical=mx<1e-5?0:mx}
+  const loads=tests.map(t=>t.load).filter(v=>v!=null),pts=lastCal?lastCal.f.filter(f=>f>0&&(!m||!m.cap||f<=m.cap)):[];
+  const edges=[0,...pts],bands=pts.map((hi,i)=>({lo:edges[i],hi,n:loads.filter(l=>l>=edges[i]&&l<hi).length}));
+  const above=pts.length?loads.filter(l=>l>=pts[pts.length-1]).length:0;
+  return{serial,m,recs,area,tests:tests.length,over,none,first,lastT,lastCal,
+    sinceFirst:lastCal&&first!=null?(first-lastCal.ts)/DAY:null,sinceLast:lastCal&&lastT!=null?(lastT-lastCal.ts)/DAY:null,
+    due:lastCal?lastCal.ts+P.calDays*DAY:null,daysLeft:lastCal&&lastT!=null?(lastCal.ts+P.calDays*DAY-lastT)/DAY:null,
+    identical,loads,pts,bands,above,medFrac:m&&m.cap&&loads.length?median(loads)/m.cap:null,
+    tune:TUNE.filter(x=>x.serial===serial)};
+}
+function plan(sw,k,delta,power){
+  if(sw==null)return null;
+  const sd=sw*Math.sqrt(2/k),n=Math.ceil(((1.959964+(Z[power]||0.8416))*sd/Math.log(1+delta))**2);
+  return{n:Math.max(2,n),specimens:Math.max(2,n)*k*2,sd};
+}
+function analyze(T,MACH,CALS,TUNE,P){
+  T.forEach(t=>{t.y=Math.log(t.stress);t.la=Math.log(t.age);t.ts=new Date(t.date).getTime()});
+  const A={machines:levelsByCount(T,'machine'),users:levelsByCount(T,'user')};
+  A.models={machine:factorModel(T,'machine',[]),user:factorModel(T,'user',A.machines.length>1?['machine']:[])};
+  // drift residuals: each machine against its own mix and age pattern, so a machine-by-mix offset is not mistaken for drift
+  A.machines.forEach(l=>{const rows=T.filter(r=>r.machine===l),res=factorModelBase(rows);rows.forEach((r,i)=>{r.res=res[i]})});
+  A.cmp={};
+  ['machine','user'].forEach(key=>{
+    const md=A.models[key];A.cmp[key]=md.effects.map(e=>{const pm=perMix(T,key,md.ref,e.level);return{level:e.level,perMix:pm,het:heterogeneity(pm)}});
+    md.overlap=overlap(T,key);
+    md.byLevel=md.levels.map(l=>{const r=T.filter(x=>x[key]===l);return{level:l,n:r.length,sets:new Set(r.map(x=>x.setId)).size,mean:mean(r.map(x=>x.stress)),sd:withinSD(r),
+      from:Math.min(...r.map(x=>x.ts)),to:Math.max(...r.map(x=>x.ts)),mixes:new Set(r.map(x=>x.mix)).size,
+      ramp:r.filter(x=>x.ramp!=null),inWin:r.filter(x=>x.ramp!=null).length?r.filter(x=>x.ramp!=null&&x.ramp>=P.rampLo&&x.ramp<=P.rampHi).length/r.filter(x=>x.ramp!=null).length:null}});
+  });
+  A.matrix=levelsByCount(T,'mix').sort((a,b)=>(+a)-(+b)||(a<b?-1:1)).map(mx=>({mix:mx,by:Object.fromEntries(A.machines.map(l=>[l,T.filter(t=>t.mix===mx&&t.machine===l).length]))}));
+  A.sw=withinSD(T);
+  A.drift=Object.fromEntries(A.machines.map(l=>[l,driftFor(T.filter(t=>t.machine===l),P)]));
+  A.cal=Object.fromEntries(A.machines.map(l=>[l,calFor(l,T,MACH,CALS,TUNE,P)]));
+  return A;
+}
+function factorModelBase(T){
+  const mixes=[...new Set(T.map(r=>r.mix))].sort(),useAge=new Set(T.map(r=>r.age)).size>1;
+  const X=T.map(r=>{const x=[1];for(let i=1;i<mixes.length;i++)x.push(r.mix===mixes[i]?1:0);if(useAge)x.push(r.la);return x});
+  try{return ols(X,T.map(r=>r.y)).res}catch(e){return T.map(()=>0)}
+}
+//</LOGIC>
+
+/* ---------- findings ---------- */
+function findings(A,T,P){
+  const F=[],n=T.length;
+  F.push({k:'info',t:`${f0(n)} tests on ${A.machines.length} machine${A.machines.length===1?'':'s'}, ${fd(Math.min(...T.map(t=>t.ts)))} to ${fd(Math.max(...T.map(t=>t.ts)))}.`,
+    b:A.machines.map(l=>{const b=A.models.machine.byLevel.find(x=>x.level===l);return `Machine ${l}: ${b.n} tests on ${b.sets} sets, ${b.mixes} mixes.`}).join(' ')});
+  [['machine','Machine','machines'],['user','Operator','operators']].forEach(([key,Lab,plural])=>{
+    const md=A.models[key];
+    if(md.levels.length<2){
+      if(key==='user')F.push({k:'info',t:`Only one operator is recorded (${md.levels[0]}).`,b:'Operators cannot be compared until the data has two or more. The comparison is built and will run as soon as they appear.'});
+      return;
+    }
+    md.effects.forEach((e,i)=>{
+      const cm=A.cmp[key][i],ov=md.overlap,het=cm.het,sig=e.lo>0||e.hi<0,est=cm.perMix.filter(r=>r.ok),rel=est.filter(r=>r.reliable),lab=Lab.toLowerCase();
+      const desc=r=>`${fp(r.eff)} on mix ${r.mix}${r.reliable?'':` (${r.sRef} vs ${r.sLevel} sample${r.sRef+r.sLevel>2?'s':''})`}`;
+      let body=`After allowing for mix and age, treating each sample of concrete as one independent batch (95% CI ${fp(e.lo)} to ${fp(e.hi)}, from ${e.G} samples).`;
+      if(est.length){
+        const list=est.map(desc).join(', ');
+        if(het&&rel.length>=2)body+=het.p<0.05?` Mix by mix the gap is ${list}. That differs more than chance allows (p ${fpp(het.p)}), and a real calibration offset would be about the same on every mix.`
+          :` Mix by mix the gap is ${list}, similar across the mixes with enough samples (p ${fpp(het.p)}), as a real offset would be.`;
+        else{const ef=est.map(r=>1+r.eff),spread=Math.max(...ef)/Math.min(...ef);
+          body+=` Mix by mix the gap is ${list}. ${rel.length===1?`Only mix ${rel[0].mix} has three or more samples on each side.`:'No mix has three or more samples on each side.'}`+(spread>1.5?' The estimates differ widely, which one calibration offset would not produce, but most rest on very few samples.':'')}
+      }
+      if(sig&&ov.sets.both===0)body+=` No set${ov.samples.both===0?', and no sample,':''} was broken by both, so these data cannot separate the ${lab} from the concrete.`;
+      const abs=fp(e.eff).replace(/^[+\u2212]/,'');
+      F.push({k:sig?'warn':'ok',t:sig?`${Lab} ${e.level} reads ${abs} ${e.eff>0?'higher':'lower'} than ${md.ref}, but this cannot yet be pinned on the ${lab}.`.replace(', but this cannot yet be pinned on the '+lab,ov.sets.both===0?', but this cannot yet be pinned on the '+lab:''):`No difference detected between ${lab} ${e.level} and ${md.ref}: ${fp(e.eff)}.`,b:body});
+    });
+  });
+  const sds=A.models.machine.byLevel.filter(b=>b.sd);
+  if(sds.length>1){
+    const a=sds[0],b=sds[sds.length-1],z=Math.abs(a.sd.sd-b.sd.sd)/Math.sqrt(a.sd.se**2+b.sd.se**2);
+    F.push({k:z>2?'warn':'info',t:'Repeatability within a set',b:sds.map(s=>`Machine ${s.level}: ${(s.sd.sd*100).toFixed(1)}% (\u00b1${(s.sd.se*196).toFixed(1)}, ${s.sd.sets} sets)`).join('; ')+'. '+(z>2.5?'The difference is clearly larger than chance would explain.':z>2?'The difference is only just larger than chance would explain, and the machine with fewer sets has a wide uncertainty.':'The difference is within what chance would explain, because the machine with fewer sets has a wide uncertainty.')});
+  }
+  A.machines.forEach(l=>{
+    const d=A.drift[l];if(!d.enough){F.push({k:'info',t:`Machine ${l}: too few sets to look for drift.`,b:''});return}
+    const trend=d.slope!=null&&(d.slo>0||d.shi<0);
+    F.push({k:trend?'warn':d.nOut?'info':'ok',t:trend?`Machine ${l} shows a trend of ${fp(d.slope)} per week.`:`No sustained drift on machine ${l}.`,
+      b:`Trend ${d.slope==null?'could not be estimated':fp(d.slope)+' per week (95% CI '+fp(d.slo)+' to '+fp(d.shi)+')'} over ${d.pts.length} sets. ${d.nOut} set${d.nOut===1?'':'s'} outside the ${P.sigma}-sigma limits or on a long run.`});
+  });
+  A.machines.forEach(l=>{
+    const c=A.cal[l];
+    if(!c.recs.length){F.push({k:'info',t:`No calibration records for machine ${l}.`,b:'Load the FrameCalibration table to check calibration dates.'});return}
+    const bad=c.recs.filter(r=>r.over),now=P.now||Date.now(),left=(c.due-now)/DAY,probs=[],hist=[];
+    if(c.over)probs.push(`${c.over} test${c.over===1?'':'s'} ran more than ${P.calDays} days after calibration`);
+    if(c.none)probs.push(`${c.none} test${c.none===1?'':'s'} ran before any calibration on file`);
+    if(bad.length)hist.push(`the history has ${bad.length} interval${bad.length===1?'':'s'} over ${P.calDays} days (${bad.map(r=>r.gap+' days before '+fd(r.ts)).join('; ')})`);
+    const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+    const dueTxt=left<0?`calibration is overdue by ${f0(-left)} days`:left<=60?`calibration is due in ${f0(left)} days`:'';
+    const tail=`Last calibrated ${fd(c.lastCal.ts)}${c.sinceLast!=null?', '+f0(c.sinceLast)+' days before its last test':''}; due ${fd(c.due)}.`;
+    const parts=[...probs,...hist,...(probs.length||hist.length?[dueTxt]:[])].filter(Boolean).map(cap);
+    const ident=c.identical===0?' The stored calibration constants are identical in all '+c.recs.length+' records, so drift in the constants cannot be measured from them.':'';
+    F.push({k:probs.length||hist.length||dueTxt?'warn':'ok',
+      t:probs.length?`Machine ${l}: calibration was overdue for some tests.`:hist.length?`Machine ${l}: every test was in date, but the calibration history has a gap.`:dueTxt?`Machine ${l}: ${dueTxt}.`:`Machine ${l}: calibrated within the interval for every test.`,
+      b:tail+(parts.length?' '+parts.join('. ')+'.':'')+ident});
+  });
+  const lowDraw=A.machines.map(l=>({l,c:A.cal[l]})).filter(x=>x.c.recs.length&&x.c.bands.length&&x.c.bands[0].n/Math.max(1,x.c.loads.length)>0.4);
+  lowDraw.forEach(x=>F.push({k:'info',t:`Machine ${x.l}: ${Math.round(x.c.bands[0].n/x.c.loads.length*100)}% of tests fall below its first calibration point.`,b:`Below ${f0(x.c.bands[0].hi)} lbf the calibration line is anchored only by zero and that point, so the low end of this machine's range is the least verified part.`}));
+  const w=A.models.machine.byLevel.filter(b=>b.inWin!=null);
+  if(w.length)F.push({k:'info',t:'Ramp rate',b:w.map(b=>`Machine ${b.level}: ${Math.round(b.inWin*100)}% of stored ramp rates in the ${P.rampLo} to ${P.rampHi} psi/s window`).join('; ')+'. Stored ramp rates have disagreed with recorded curves in other checks, so treat these as a guide.'});
+  return F;
+}
+</script>
+<script>
+/* ---------- state and helpers ---------- */
+const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const DEFAULT_P={calDays:395,sigma:3,run:8,rampLo:28,rampHi:42};
+let P={...DEFAULT_P},T=[],MACH=[],CALS=[],TUNE=[],A=null,sourceLabel='the bundled sample (Example_Data_1.xlsx)';
+const S={factor:'machine',cmp:{},k:3,power:0.8,delta:5};
+const PAL=['var(--accent)','var(--soft)','var(--multi)','var(--clean)','var(--hard)','var(--note)'];
+const col=l=>PAL[Math.max(0,A.machines.indexOf(l))%PAL.length];
+function niceStep(range,target){const raw=range/target,p=10**Math.floor(Math.log10(raw)),m=raw/p;return(m<1.5?1:m<3.5?2:m<7.5?5:10)*p}
+const dshort=ts=>{const d=new Date(ts);return MON[d.getMonth()]+' '+d.getDate()};
+
+const TABS=['overview','bias','drift','cal','data','notes'];
+function showTab(n){TABS.forEach(t=>{const on=t===n;$('#t-'+t).setAttribute('aria-selected',on);$('#s-'+t).hidden=!on})}
+TABS.forEach(t=>$('#t-'+t).addEventListener('click',()=>showTab(t)));
+$('.tabs').addEventListener('keydown',e=>{
+  const i=TABS.findIndex(t=>$('#t-'+t).getAttribute('aria-selected')==='true');
+  if(e.key==='ArrowRight'||e.key==='ArrowLeft'){const n=TABS[(i+(e.key==='ArrowRight'?1:TABS.length-1))%TABS.length];showTab(n);$('#t-'+n).focus()}
+});
+
+/* ---------- overview ---------- */
+function renderOverview(){
+  $('#lede').textContent=`${f0(T.length)} compression tests on ${A.machines.length} machine${A.machines.length===1?'':'s'}, checked for machine bias, drift and calibration.`;
+  $('#finds').innerHTML=findings(A,T,P).map(f=>`<div class="find ${f.k}"><b>${esc(f.t)}</b>${f.b?`<p>${esc(f.b)}</p>`:''}</div>`).join('');
+  const L=A.machines,md=A.models.machine.byLevel,rows=[
+    ['Description',l=>A.cal[l].m?esc(A.cal[l].m.desc):'–'],
+    ['Capacity',l=>A.cal[l].m&&A.cal[l].m.cap?f0(A.cal[l].m.cap)+' lbf':'–'],
+    ['Tests, sets',l=>{const b=md.find(x=>x.level===l);return `${f0(b.n)}, ${f0(b.sets)}`}],
+    ['Test dates',l=>{const b=md.find(x=>x.level===l);return `${fd(b.from)} to ${fd(b.to)}`}],
+    ['Mixes tested',l=>md.find(x=>x.level===l).mixes],
+    ['Median test load',l=>{const c=A.cal[l];return c.medFrac!=null?`${f0(median(c.loads))} lbf, ${Math.round(c.medFrac*100)}% of capacity`:c.loads.length?f0(median(c.loads))+' lbf':'–'}],
+    ['Mean strength',l=>f0(md.find(x=>x.level===l).mean)+' psi'],
+    ['Repeatability within a set',l=>{const s=md.find(x=>x.level===l).sd;return s?`${(s.sd*100).toFixed(1)}% (${s.sets} sets)`:'–'}],
+    ['Stored ramp in window',l=>{const w=md.find(x=>x.level===l).inWin;return w==null?'–':Math.round(w*100)+'%'}],
+    ['Last calibration',l=>{const c=A.cal[l];return c.lastCal?fd(c.lastCal.ts):'none on file'}],
+    ['Days since calibration at last test',l=>{const c=A.cal[l];return c.sinceLast!=null?f0(c.sinceLast):'–'}],
+    ['Calibration due',l=>{const c=A.cal[l];return c.due?fd(c.due):'–'}]
+  ];
+  $('#fleet').innerHTML=`<thead><tr><th></th>${L.map(l=>`<th class="r"><span class="dot" style="--c:${col(l)}"></span> ${esc(l)}</th>`).join('')}</tr></thead><tbody>`+
+    rows.map(([n,f])=>`<tr><td class="k">${n}</td>${L.map(l=>`<td class="r num">${f(l)}</td>`).join('')}</tr>`).join('')+'</tbody>';
+}
+
+/* ---------- bias ---------- */
+function forestSVG(md,cm,e){
+  const rows=cm.perMix,W=900,rh=34,m={l:150,r:150,t:24,b:44},H=m.t+m.b+rh*(rows.length+1);
+  const lo=Math.log(0.4),hi=Math.log(4),x=r=>m.l+(Math.log(Math.min(Math.max(1+r,0.4),4))-lo)/(hi-lo)*(W-m.l-m.r);
+  let s='';
+  [-0.5,-0.25,0,0.5,1,2,3].forEach(v=>{s+=`<line class="grid" x1="${x(v)}" x2="${x(v)}" y1="${m.t}" y2="${H-m.b}" ${v===0?'style="stroke:var(--ink);stroke-width:1.4"':''}/><text x="${x(v)}" y="${H-m.b+18}" text-anchor="middle">${v===0?'0%':(v>0?'+':'\u2212')+Math.abs(v*100)+'%'}</text>`});
+  rows.forEach((r,i)=>{
+    const y=m.t+rh*i+rh/2;
+    s+=`<text x="${m.l-12}" y="${y+4}" text-anchor="end" style="fill:var(--ink)">Mix ${esc(r.mix)}</text>`;
+    s+=`<text x="${W-m.r+12}" y="${y+4}" >${r.sRef} vs ${r.sLevel} samples</text>`;
+    if(r.ok&&r.reliable&&r.lo!=null){s+=`<line x1="${x(r.lo)}" x2="${x(r.hi)}" y1="${y}" y2="${y}" stroke="var(--accent)" stroke-width="2"/><circle cx="${x(r.eff)}" cy="${y}" r="5.5" fill="var(--accent)"/><text x="${x(r.hi)+8}" y="${y-8}" style="fill:var(--ink)">${fp(r.eff)}</text>`}
+    else if(r.ok){s+=`<circle cx="${x(r.eff)}" cy="${y}" r="5.5" fill="var(--panel2)" stroke="var(--accent)" stroke-width="2"/><text x="${x(r.eff)+10}" y="${y-8}" style="fill:var(--ink)">${fp(r.eff)}</text>`}
+    else s+=`<text x="${x(0)+12}" y="${y+4}">too few tests in one group to estimate</text>`;
+  });
+  const y=m.t+rh*rows.length+rh/2;
+  s+=`<line x1="${m.l-130}" x2="${W-m.r+100}" y1="${y-rh/2}" y2="${y-rh/2}" class="grid"/>`;
+  s+=`<text x="${m.l-12}" y="${y+4}" text-anchor="end" style="fill:var(--ink);font-weight:600">All mixes, adjusted</text><line x1="${x(e.lo)}" x2="${x(e.hi)}" y1="${y}" y2="${y}" stroke="var(--ink)" stroke-width="2.4"/><path d="M${x(e.eff)} ${y-8} l8 8 l-8 8 l-8 -8 z" fill="var(--ink)"/><text x="${x(e.hi)+8}" y="${y-9}" style="fill:var(--ink);font-weight:600">${fp(e.eff)}</text>`;
+  if(cm.het)s+=`<line x1="${x(cm.het.pooled)}" x2="${x(cm.het.pooled)}" y1="${m.t}" y2="${y-rh/2}" stroke="var(--soft)" stroke-dasharray="5 4" stroke-width="1.5"/>`;
+  s+=`<text x="${(m.l+W-m.r)/2}" y="${H-6}" text-anchor="middle">Difference of ${esc(e.level)} from ${esc(md.ref)} (log scale). Bars are 95% intervals. Hollow marks have no interval.</text>`;
+  return `<svg class="plot" viewBox="0 0 ${W} ${H}" role="img" aria-label="Difference between ${esc(e.level)} and ${esc(md.ref)} within each mix">${s}</svg>`;
+}
+function renderBias(){
+  const key=S.factor,md=A.models[key],Lab=key==='machine'?'Machine':'Operator';
+  $('#factorSeg').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.f===key));
+  if(md.levels.length<2){
+    $('#bias-body').innerHTML=`<div class="find info"><b>Only one ${Lab.toLowerCase()} is recorded (${esc(md.levels[0]||'none')}).</b><p>There is nothing to compare yet. The comparison runs automatically when the loaded data has two or more.</p></div>`+planner(null,key);
+    bindPlanner();return;
+  }
+  if(!S.cmp[key]||!md.effects.some(e=>e.level===S.cmp[key]))S.cmp[key]=md.effects[0].level;
+  const ei=md.effects.findIndex(e=>e.level===S.cmp[key]),e=md.effects[ei],cm=A.cmp[key][ei],ov=md.overlap,sig=e.lo>0||e.hi<0;
+  const f=findings(A,T,P).find(x=>x.t.includes(`${Lab} ${e.level}`)&&x.t.includes(md.ref));
+  const pick=md.effects.length>1?`<label class="field"><span>Compare with ${esc(md.ref)}</span><select id="cmpSel">${md.effects.map(x=>`<option ${x.level===e.level?'selected':''}>${esc(x.level)}</option>`).join('')}</select></label>`:'';
+  const usable=cm.perMix.filter(r=>r.ok).length;
+  $('#bias-body').innerHTML=pick+
+    (f?`<div class="find ${f.k}"><b>${esc(f.t)}</b><p>${esc(f.b)}</p></div>`:'')+
+    `<div class="block"><h3>Summary by ${Lab.toLowerCase()}</h3><div class="tablewrap"><table class="t"><thead><tr><th>${Lab}</th><th class="r">Tests</th><th class="r">Sets</th><th class="r">Mean strength</th><th class="r">Within-set repeatability</th><th class="r">Adjusted difference from ${esc(md.ref)}</th></tr></thead><tbody>`+
+    md.byLevel.map(b=>{const ef=md.effects.find(x=>x.level===b.level);return `<tr><td>${esc(b.level)}</td><td class="r num">${b.n}</td><td class="r num">${b.sets}</td><td class="r num">${f0(b.mean)} psi</td><td class="r num">${b.sd?(b.sd.sd*100).toFixed(1)+'%':'–'}</td><td class="r num">${ef?`${fp(ef.eff)} (${fp(ef.lo)} to ${fp(ef.hi)})`:'reference'}</td></tr>`}).join('')+`</tbody></table></div>
+     <p class="hint">${key==='user'&&A.machines.length>1?'The operator model also allows for machine. ':''}Adjusted means strength is compared on a log scale after allowing for mix and age at break. Intervals treat each sample of concrete as one independent batch, because specimens from one sample are not independent.</p></div>`+
+    `<div class="block"><h3>Is the gap the same on every mix?</h3><p class="sub">A calibration offset should shift every mix by about the same percentage. If the gap swings widely between mixes, the samples are the more likely cause.</p>`+
+    (cm.perMix.length?`<div class="plotbox">${forestSVG(md,cm,e)}</div><p class="hint">${cm.het?`Heterogeneity across ${cm.het.m} mixes: Q = ${cm.het.Q.toFixed(1)}, ${cm.het.df} degrees of freedom, p ${fpp(cm.het.p)}. Dashed line: the average of the mix-by-mix gaps.`:`${cm.perMix.filter(r=>r.ok&&r.reliable).length} mix${cm.perMix.filter(r=>r.ok&&r.reliable).length===1?' has':'es have'} three or more samples on each side, so a significance test across mixes is not possible. Hollow marks rest on fewer than three samples on one side, so the point estimate is shown without an interval.`}</p>`:'<p class="empty">No mix was tested by both, so there is nothing to compare within a mix.</p>')+`</div>`+
+    `<div class="block"><h3>Who tested what</h3><p class="sub">${ov.sets.both} of ${ov.sets.total} sets and ${ov.samples.both} of ${ov.samples.total} samples were broken by more than one ${Lab.toLowerCase()}. Where the answer is zero, a ${Lab.toLowerCase()} difference cannot be told apart from a sample difference.</p>`+matrixHTML(key)+`</div>`+planner(md,key);
+  const sel=$('#cmpSel');if(sel)sel.onchange=()=>{S.cmp[key]=sel.value;renderBias()};
+  bindPlanner();
+}
+function matrixHTML(key){
+  const levels=A.models[key].levels;
+  const rows=levelsByCount(T,'mix').sort((a,b)=>(+a)-(+b)||(a<b?-1:1)).map(mx=>({mx,c:levels.map(l=>T.filter(t=>t.mix===mx&&t[key]===l).length)}));
+  return `<div class="tablewrap" style="max-height:340px"><table class="t"><thead><tr><th>Mix</th>${levels.map(l=>`<th class="r">${esc(l)}</th>`).join('')}<th>Tested by both</th></tr></thead><tbody>`+
+    rows.map(r=>{const both=r.c.filter(x=>x>0).length>1;return `<tr><td>${esc(r.mx)}</td>${r.c.map(x=>`<td class="r num">${x||'–'}</td>`).join('')}<td>${both?'<span class="dot" style="--c:var(--clean)"></span> yes':'<span class="hint">no</span>'}</td></tr>`}).join('')+'</tbody></table></div>';
+}
+function planner(md,key){
+  const sw=A.sw;
+  if(!sw)return `<div class="block"><h3>Cross-check planner</h3><p class="empty">Needs at least one set with two or more specimens to estimate repeatability.</p></div>`;
+  const out=plan(sw.sd,S.k,S.delta/100,S.power),deltas=[2,3,5,10,15];
+  return `<div class="block"><h3>How many cross-check sets would settle it?</h3>
+    <p class="sub">Break the same set on each ${key==='user'?'operator':'machine'}, so the concrete cancels out and only the ${key==='user'?'operator':'machine'} difference remains. Repeatability within a set is ${(sw.sd*100).toFixed(1)}% in this data (${sw.sets} sets).</p>
+    <div class="cols"><div>
+      <label class="field"><span>Specimens per ${key==='user'?'operator':'machine'} in each set</span><input type="number" min="1" step="1" id="plK" value="${S.k}"></label>
+      <label class="field"><span>Difference to detect (%)</span><input type="number" min="0.5" step="0.5" id="plD" value="${S.delta}"></label>
+      <label class="field"><span>Power</span><select id="plP">${[0.8,0.9,0.95].map(p=>`<option value="${p}" ${p===S.power?'selected':''}>${p*100}%</option>`).join('')}</select></label>
+      <div class="find ok"><b>${out.n} sets (${out.specimens} specimens)</b><p>would detect a ${S.delta}% difference with ${Math.round(S.power*100)}% power, at the 5% significance level.</p></div>
+    </div><div><div class="tablewrap"><table class="t"><thead><tr><th class="r">Difference to detect</th><th class="r">Sets needed</th><th class="r">Specimens</th></tr></thead><tbody>`+
+    deltas.map(d=>{const p=plan(sw.sd,S.k,d/100,S.power);return `<tr><td class="r num">${d}%</td><td class="r num">${p.n}</td><td class="r num">${p.specimens}</td></tr>`}).join('')+`</tbody></table></div></div></div></div>`;
+}
+function bindPlanner(){
+  const k=$('#plK'),d=$('#plD'),p=$('#plP');if(!k)return;
+  k.oninput=()=>{const v=parseInt(k.value);if(v>=1){S.k=v;renderBias();$('#plK').focus()}};
+  d.oninput=()=>{const v=parseFloat(d.value);if(v>0){S.delta=v;renderBias();const el=$('#plD');el.focus();el.setSelectionRange&&0}};
+  p.onchange=()=>{S.power=parseFloat(p.value);renderBias()};
+}
+$('#factorSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(b){S.factor=b.dataset.f;renderBias()}});
+
+/* ---------- drift ---------- */
+function driftSVG(l,d){
+  const W=900,H=300,m={l:52,r:16,t:14,b:34},ts=d.pts.map(p=>p.ts),t0=Math.min(...ts)-DAY,t1=Math.max(...ts)+DAY;
+  const pc=v=>(Math.exp(v)-1)*100,vals=d.pts.map(p=>pc(p.res)).concat([pc(d.ucl),pc(d.lcl)]);
+  let ymin=Math.min(...vals,0),ymax=Math.max(...vals,0);const pad=(ymax-ymin)*0.08;ymin-=pad;ymax+=pad;
+  const x=t=>m.l+(t-t0)/(t1-t0)*(W-m.l-m.r),y=v=>H-m.b-(v-ymin)/(ymax-ymin)*(H-m.t-m.b);
+  let s='';const ys=niceStep(ymax-ymin,6);
+  for(let v=Math.ceil(ymin/ys)*ys;v<=ymax;v+=ys)s+=`<line class="grid" x1="${m.l}" x2="${W-m.r}" y1="${y(v)}" y2="${y(v)}"/><text x="${m.l-8}" y="${y(v)+4}" text-anchor="end">${v>0?'+':v<0?'\u2212':''}${Math.abs(Math.round(v))}%</text>`;
+  const xs=niceStep((t1-t0)/DAY,7);for(let v=0;v<=(t1-t0)/DAY;v+=xs){const t=t0+v*DAY;s+=`<line class="grid" x1="${x(t)}" x2="${x(t)}" y1="${H-m.b}" y2="${H-m.b+5}"/><text x="${x(t)}" y="${H-m.b+19}" text-anchor="middle">${dshort(t)}</text>`}
+  s+=`<rect x="${m.l}" y="${y(pc(d.ucl))}" width="${W-m.l-m.r}" height="${y(pc(d.lcl))-y(pc(d.ucl))}" fill="var(--band)"/>`;
+  [[d.ucl,'upper limit'],[d.lcl,'lower limit']].forEach(([v,n])=>{s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${y(pc(v))}" y2="${y(pc(v))}" stroke="var(--hard)" stroke-dasharray="5 4" stroke-width="1.2"/><text x="${W-m.r-4}" y="${y(pc(v))-5}" text-anchor="end" style="fill:var(--hard)">${n}</text>`});
+  s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${y(pc(d.center))}" y2="${y(pc(d.center))}" stroke="var(--ink)" stroke-width="1.3"/>`;
+  if(d.weeks.length>1)s+=`<polyline points="${d.weeks.map(w=>`${x(w.start+3.5*DAY)},${y(pc(w.mean))}`).join(' ')}" fill="none" stroke="${col(l)}" stroke-width="2.2" stroke-opacity=".8"/>`;
+  d.pts.forEach(p=>{const flagged=p.rules.length;
+    s+=`<circle cx="${x(p.ts)}" cy="${y(pc(p.res))}" r="${flagged?6:4.2}" fill="${col(l)}" fill-opacity="${flagged?1:.55}" ${flagged?'stroke="var(--hard)" stroke-width="2"':''}><title>${esc(p.sample)}, ${p.age}-day, ${fd(p.ts)}: ${fp(Math.exp(p.res)-1)} from expected${p.rules.length?' ('+esc(p.rules.join(', '))+')':''}</title></circle>`});
+  return `<svg class="plot" viewBox="0 0 ${W} ${H}" role="img" aria-label="Control chart for machine ${esc(l)}">${s}</svg>`;
+}
+function renderDrift(){
+  $('#drift-body').innerHTML=A.machines.map(l=>{
+    const d=A.drift[l];
+    if(!d.enough)return `<div class="mcard"><h3><span class="dot" style="--c:${col(l)}"></span> Machine ${esc(l)}</h3><p class="empty">Fewer than three sets, so there is nothing to chart.</p></div>`;
+    const flagged=d.pts.filter(p=>p.rules.length);
+    return `<div class="mcard"><h3><span class="dot" style="--c:${col(l)}"></span> Machine ${esc(l)}</h3>
+      <div class="plotbox">${driftSVG(l,d)}<div class="key"><span>One point per set</span><span><svg width="26" height="10"><line x1="0" x2="26" y1="5" y2="5" stroke="${col(l)}" stroke-width="2.2"/></svg>Weekly average</span><span><svg width="14" height="14"><circle cx="7" cy="7" r="5" fill="none" stroke="var(--hard)" stroke-width="2"/></svg>Outside limits or on a long run</span></div></div>
+      <div class="tablewrap" style="margin-top:14px"><table class="t"><tbody>
+        <tr><td class="k">Trend</td><td>${d.slope==null?'too few sets':`${fp(d.slope)} per week (95% CI ${fp(d.slo)} to ${fp(d.shi)})`}</td></tr>
+        <tr><td class="k">Sets charted</td><td>${d.pts.length}, with ${d.nLimit} beyond the ${P.sigma}-sigma limits and ${flagged.length-d.nLimit} more on a run of ${P.run} or longer</td></tr>
+        <tr><td class="k">Limits</td><td>${fp(Math.exp(d.lcl)-1)} to ${fp(Math.exp(d.ucl)-1)} around the centre line, from the set-to-set variation</td></tr></tbody></table></div>
+      ${flagged.length?`<h3 style="margin-top:16px">Sets to look at</h3><div class="tablewrap" style="max-height:260px"><table class="t"><thead><tr><th>Sample</th><th class="r">Age</th><th>Date</th><th class="r">From expected</th><th>Reason</th></tr></thead><tbody>${flagged.map(p=>`<tr><td>${esc(p.sample)}</td><td class="r num">${p.age}</td><td>${fd(p.ts)}</td><td class="r num">${fp(Math.exp(p.res)-1)}</td><td>${esc([...new Set(p.rules)].join(', '))}</td></tr>`).join('')}</tbody></table></div>`:'<p class="hint" style="margin-top:12px">No sets are outside the limits.</p>'}</div>`}).join('');
+}
+
+/* ---------- calibration ---------- */
+function timelineSVG(c){
+  const W=900,H=110,m={l:30,r:30,t:40,b:30};
+  const ts=[...c.recs.map(r=>r.ts),c.first,c.lastT,c.due].filter(v=>v!=null),t0=Math.min(...ts)-20*DAY,t1=Math.max(...ts)+20*DAY;
+  const x=t=>m.l+(t-t0)/(t1-t0)*(W-m.l-m.r),y=H-m.b-14;let s='';
+  s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${y+7}" y2="${y+7}" class="grid"/>`;
+  let lastLabelX=-1e9,lvl=0;
+  c.recs.forEach((r,i)=>{
+    const end=i<c.recs.length-1?c.recs[i+1].ts:r.ts+P.calDays*DAY,ok=Math.min(end,r.ts+P.calDays*DAY);
+    s+=`<rect x="${x(r.ts)}" y="${y}" width="${Math.max(1,x(ok)-x(r.ts))}" height="14" fill="var(--clean)" fill-opacity=".45"/>`;
+    if(end>ok)s+=`<rect x="${x(ok)}" y="${y}" width="${x(end)-x(ok)}" height="14" fill="var(--hard)" fill-opacity=".45"/>`;
+    lvl=(x(r.ts)-lastLabelX<100)?(lvl+1)%2:0;lastLabelX=x(r.ts);
+    s+=`<line x1="${x(r.ts)}" x2="${x(r.ts)}" y1="${y-8-lvl*14}" y2="${y+22}" stroke="var(--ink)" stroke-width="2"/><text x="${x(r.ts)}" y="${y-12-lvl*14}" text-anchor="${lvl?'start':'middle'}" style="fill:var(--ink)">${fd(r.ts)}</text>`;
+  });
+  if(c.first!=null)s+=`<rect x="${x(c.first)}" y="${y-18}" width="${Math.max(2,x(c.lastT)-x(c.first))}" height="5" fill="var(--accent)"/><text x="${x(c.first)}" y="${H-6}" style="fill:var(--accent)">test period</text>`;
+  if(c.due!=null)s+=`<line x1="${x(c.due)}" x2="${x(c.due)}" y1="${y-6}" y2="${y+20}" stroke="var(--soft)" stroke-width="2" stroke-dasharray="4 3"/><text x="${x(c.due)}" y="${H-6}" text-anchor="middle" style="fill:var(--soft)">due</text>`;
+  return `<svg class="plot" viewBox="0 0 ${W} ${H}" role="img" aria-label="Calibration timeline for machine ${esc(c.serial)}">${s}</svg>`;
+}
+function coverageSVG(c,l){
+  const W=900,H=200,m={l:44,r:16,t:16,b:40},cap=c.m&&c.m.cap,xmax=c.pts.length?c.pts[c.pts.length-1]:(cap||Math.max(...c.loads)*1.1);
+  const bw=Math.max(5000,niceStep(xmax,24)),bins=Array.from({length:Math.ceil(xmax/bw)},()=>0);
+  c.loads.forEach(v=>{const i=Math.min(bins.length-1,Math.floor(v/bw));if(v<=xmax)bins[i]++});
+  const ymax=Math.max(...bins,1),x=v=>m.l+v/xmax*(W-m.l-m.r),y=v=>H-m.b-v/ymax*(H-m.t-m.b);let s='';
+  const xs=niceStep(xmax,8);for(let v=0;v<=xmax;v+=xs)s+=`<line class="grid" x1="${x(v)}" x2="${x(v)}" y1="${H-m.b}" y2="${H-m.b+5}"/><text x="${x(v)}" y="${H-m.b+19}" text-anchor="middle">${f0(v/1000)}k</text>`;
+  const ys=niceStep(ymax,4);for(let v=0;v<=ymax;v+=ys)s+=`<line class="grid" x1="${m.l}" x2="${W-m.r}" y1="${y(v)}" y2="${y(v)}"/><text x="${m.l-8}" y="${y(v)+4}" text-anchor="end">${v}</text>`;
+  bins.forEach((n,i)=>{if(n)s+=`<rect x="${x(i*bw)+1}" y="${y(n)}" width="${x(bw)-x(0)-2}" height="${y(0)-y(n)}" fill="${col(l)}" fill-opacity=".8"><title>${f0(i*bw)} to ${f0((i+1)*bw)} lbf: ${n} tests</title></rect>`});
+  c.pts.forEach(p=>{s+=`<line x1="${x(p)}" x2="${x(p)}" y1="${m.t}" y2="${H-m.b}" stroke="var(--ink)" stroke-dasharray="5 4"/><text x="${x(p)-4}" y="${m.t+10}" text-anchor="end" style="fill:var(--ink)">${f0(p/1000)}k</text>`});
+  s+=`<text x="${(m.l+W-m.r)/2}" y="${H-4}" text-anchor="middle">Load at break (lbf). Dashed lines are the calibration force points.</text>`;
+  return `<svg class="plot" viewBox="0 0 ${W} ${H}" role="img" aria-label="Distribution of test loads against calibration points for machine ${esc(l)}">${s}</svg>`;
+}
+function renderCal(){
+  $('#cal-body').innerHTML=A.machines.map(l=>{
+    const c=A.cal[l];
+    if(!c.recs.length)return `<div class="mcard"><h3><span class="dot" style="--c:${col(l)}"></span> Machine ${esc(l)}</h3><p class="empty">No calibration records loaded for this machine.</p></div>`;
+    const shares=c.bands.map(b=>`${f0(b.lo/1000)}k to ${f0(b.hi/1000)}k lbf: ${Math.round(b.n/Math.max(1,c.loads.length)*100)}% of tests`).join('; ');
+    return `<div class="mcard"><h3><span class="dot" style="--c:${col(l)}"></span> Machine ${esc(l)}${c.m?`, ${esc(c.m.desc)}`:''}</h3>
+      <div class="plotbox">${timelineSVG(c)}<div class="key"><span><svg width="14" height="10"><rect width="14" height="10" fill="var(--clean)" fill-opacity=".6"/></svg>Within ${P.calDays} days of a calibration</span><span><svg width="14" height="10"><rect width="14" height="10" fill="var(--hard)" fill-opacity=".6"/></svg>Overdue</span><span><svg width="14" height="6"><rect width="14" height="6" fill="var(--accent)"/></svg>When this machine was used for these tests</span></div></div>
+      <h3 style="margin-top:18px">Calibration records</h3>
+      <div class="tablewrap"><table class="t"><thead><tr><th>Date</th><th class="r">Days since previous</th><th>Interval</th>${[1,2,3,4].map(i=>`<th class="r">Segment ${i} (lbf/psi)</th>`).join('')}</tr></thead><tbody>`+
+      c.recs.map(r=>`<tr><td>${fd(r.ts)}</td><td class="r num">${r.gap==null?'first':f0(r.gap)}</td><td>${r.gap==null?'<span class="hint">n/a</span>':r.over?'<span class="dot" style="--c:var(--hard)"></span> over '+P.calDays:'<span class="dot" style="--c:var(--clean)"></span> within'}</td>${r.slopes.map((s,i)=>`<td class="r num">${s==null?'–':s.toFixed(2)}${r.dev[i]==null?'':`<div class="hint">${Math.abs(r.dev[i])<5e-4?'0.0%':fp(r.dev[i])} vs ram</div>`}</td>`).join('')}</tr>`).join('')+`</tbody></table></div>
+      <p class="hint">${c.identical===0?'Every record holds identical pressure and force values. The machine either did not move or the constants were carried forward, so calibration drift cannot be measured from these records. Check the certificates.':'Constants differ between records.'} ${c.area?`The ram area for a ${c.m.ramDiam} in diameter ram is ${c.area.toFixed(2)} in², and each segment should sit close to that value.`:''}</p>
+      <h3 style="margin-top:18px">Where the tests fall in the calibrated range</h3>
+      <div class="plotbox">${coverageSVG(c,l)}</div>
+      <p class="hint">${c.medFrac!=null?`Median test load is ${Math.round(c.medFrac*100)}% of the ${f0(c.m.cap)} lbf capacity. `:''}${shares}${c.above?`; ${Math.round(c.above/c.loads.length*100)}% above the last point`:''}.</p>
+      ${c.tune.length?`<h3 style="margin-top:18px">Tuning parameters</h3><div class="tablewrap"><table class="t"><thead><tr><th>Date</th><th class="r">Prop</th><th class="r">Integral</th><th class="r">Derivative</th><th class="r">Prop speed</th><th class="r">Int speed</th><th class="r">Der speed</th></tr></thead><tbody>${c.tune.map(u=>`<tr><td>${esc(u.date)}</td><td class="r num">${u.prop}</td><td class="r num">${u.integral}</td><td class="r num">${u.der}</td><td class="r num">${u.propSpeed}</td><td class="r num">${u.intSpeed}</td><td class="r num">${u.derSpeed}</td></tr>`).join('')}</tbody></table></div>`:''}</div>`}).join('');
+}
+
+/* ---------- notes ---------- */
+function renderNotes(){
+  $('#notes').innerHTML=`<h2>How this works</h2>
+<h3>Bias</h3>
+<p>Strength is modelled on a log scale against mix, the log of age at break, and the machine (or operator). The reported difference is the machine term, so a machine that mostly breaks strong concrete is not blamed for it. Specimens cast from one sample are not independent, so intervals treat each sample as one unit (cluster-robust errors), which is why they are wider than a plain regression would give.</p>
+<p>Because the model cannot see why one machine got different concrete, a second check looks inside each mix. If the gap is about the same on every mix, a real offset is plausible. If it swings, the samples are the likelier cause. A mix gets an interval only when each machine has three or more samples of it. The heterogeneity test is a chi-square test on those mix-by-mix gaps, and with few mixes it has little power, so read the chart as well as the p value.</p>
+<h3>Drift</h3>
+<p>The residual for each set is its average distance from what that machine's own mix and age pattern predicts, so a machine-by-mix offset is not mistaken for drift. Control limits come from the average change between consecutive sets, the standard method for individual values, and a run rule flags a long streak on one side. The weekly trend is a straight-line fit, with its confidence interval.</p>
+<h3>Cross-check planner</h3>
+<p>Breaking the same set on each machine removes the concrete from the comparison. The number of sets comes from the repeatability within a set (the pooled standard deviation of log strength across sets with two or more specimens), the number of specimens per machine, and the usual two-sided 5% test.</p>
+<h3>What this cannot tell you</h3>
+<ul>
+<li>Whether a machine is accurate. Only a verification against a reference load cell or proving device does that. These checks tell you where to look and what to verify.</li>
+<li>Operator effects when only one operator appears in the data.</li>
+<li>Drift in the calibration constants when every record holds the same values.</li>
+<li>Anything about the cause when no set or sample was broken on both machines. The adjusted gap is then an association, not a measurement of bias.</li>
+</ul>
+<h3>Settings to confirm</h3>
+<ul>
+<li>The calibration interval. The default is 13 months, so use whatever your accreditation requires.</li>
+<li>The ramp window. Stored ramp rates have disagreed with recorded curves in earlier checks.</li>
+</ul>`;
+}
+
+/* ---------- data loading ---------- */
+const norm=s=>String(s==null?'':s).toLowerCase().replace(/[^a-z0-9]/g,'');
+const TABLE_NAMES=['specimentype','specbreaktype','sampleset','concretemix','cylinderdata','cubedata','beamdata','results','specimen','sample','setup','location','project','supplier','lab','forneyuser','machinetuningparams','framecalibration','poscal','lvdtcalibration','machine'];
+function tableName(s){const n=norm(s);if(TABLE_NAMES.includes(n))return n;return TABLE_NAMES.slice().sort((a,b)=>b.length-a.length).find(t=>n.includes(t))||null}
+const numv=v=>{if(v==null||v==='')return null;if(typeof v==='number')return isFinite(v)?v:null;const x=parseFloat(String(v).replace(/,/g,''));return isNaN(x)?null:x};
+const pad=n=>String(n).padStart(2,'0');
+function toIso(v){
+  if(v==null||v==='')return null;let d;
+  if(typeof v==='number'){d=new Date(Math.round((v-25569)*864e5));if(isNaN(d))return null;return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`}
+  d=new Date(String(v).trim().replace(' ','T'));if(isNaN(d))return null;
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function rowsToObjects(rows){
+  const hi=rows.findIndex(r=>r.some(c=>c!==''&&c!=null));if(hi<0)return[];
+  const head=rows[hi].map(norm),out=[];
+  for(let i=hi+1;i<rows.length;i++){const r=rows[i];if(!r.some(c=>c!==''&&c!=null))continue;const o={};head.forEach((h,j)=>{if(h&&o[h]===undefined)o[h]=(r[j]===''||r[j]===undefined)?null:r[j]});out.push(o)}
+  return out;
+}
+function parseCSV(text){
+  if(text.charCodeAt(0)===0xFEFF)text=text.slice(1);
+  const first=text.split(/\r?\n/,1)[0],delim=first.split('\t').length>first.split(',').length?'\t':',',rows=[];let row=[],f='',q=false;
+  for(let i=0;i<text.length;i++){const c=text[i];
+    if(q){if(c==='"'){if(text[i+1]==='"'){f+='"';i++}else q=false}else f+=c}
+    else if(c==='"')q=true;else if(c===delim){row.push(f);f=''}
+    else if(c==='\n'||c==='\r'){if(c==='\r'&&text[i+1]==='\n')i++;row.push(f);f='';rows.push(row);row=[]}else f+=c}
+  if(f!==''||row.length){row.push(f);rows.push(row)}
+  return rowsToObjects(rows);
+}
+function zipIndex(buf){
+  const u8=new Uint8Array(buf),dv=new DataView(buf);let e=u8.length-22;while(e>=0&&dv.getUint32(e,true)!==0x06054b50)e--;
+  if(e<0)throw new Error('This does not look like an .xlsx file.');
+  const cnt=dv.getUint16(e+10,true);let p=dv.getUint32(e+16,true);const files={};
+  for(let i=0;i<cnt;i++){if(dv.getUint32(p,true)!==0x02014b50)break;
+    const method=dv.getUint16(p+10,true),csize=dv.getUint32(p+20,true),nl=dv.getUint16(p+28,true),xl=dv.getUint16(p+30,true),cl=dv.getUint16(p+32,true),lho=dv.getUint32(p+42,true);
+    files[new TextDecoder().decode(u8.subarray(p+46,p+46+nl))]={method,csize,lho};p+=46+nl+xl+cl}
+  const get=async name=>{const f=files[name];if(!f)return null;const s=f.lho+30+dv.getUint16(f.lho+26,true)+dv.getUint16(f.lho+28,true),data=u8.subarray(s,s+f.csize);
+    if(f.method===0)return data;return new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer())};
+  return{files,get};
+}
+const colIndex=ref=>{let n=0;for(const ch of ref.replace(/[0-9]/g,''))n=n*26+ch.charCodeAt(0)-64;return n-1};
+async function readXlsx(buf){
+  const z=zipIndex(buf),Pz=new DOMParser(),txt=async n=>{const d=await z.get(n);return d?new TextDecoder().decode(d):null},xml=s=>Pz.parseFromString(s,'application/xml');
+  const wb=xml(await txt('xl/workbook.xml')),rels=xml(await txt('xl/_rels/workbook.xml.rels')),relMap={};
+  [...rels.getElementsByTagName('Relationship')].forEach(r=>relMap[r.getAttribute('Id')]=r.getAttribute('Target'));
+  const sx=await txt('xl/sharedStrings.xml'),sst=sx?[...xml(sx).getElementsByTagName('si')].map(si=>[...si.getElementsByTagName('t')].map(t=>t.textContent).join('')):[],out={};
+  for(const s of wb.getElementsByTagName('sheet')){
+    let tg=relMap[s.getAttribute('r:id')];if(!tg)continue;tg=tg.startsWith('/')?tg.slice(1):'xl/'+tg;const body=await txt(tg);if(!body)continue;const rows=[];
+    for(const row of xml(body).getElementsByTagName('row')){const arr=[];
+      for(const c of row.getElementsByTagName('c')){const t=c.getAttribute('t'),ve=c.getElementsByTagName('v')[0];let v='';
+        if(t==='inlineStr')v=[...c.getElementsByTagName('t')].map(x=>x.textContent).join('');
+        else if(ve){const raw=ve.textContent;v=t==='s'?sst[+raw]:(t==='str'||t==='d')?raw:t==='b'?raw==='1':t==='e'?'':Number(raw)}
+        arr[colIndex(c.getAttribute('r'))]=v}
+      rows.push(Array.from(arr,x=>x===undefined?'':x))}
+    out[s.getAttribute('name')]=rowsToObjects(rows);
+  }
+  return out;
+}
+function buildRelational(Tb,rep){
+  const need=['results','specimen','sampleset','sample','setup'],miss=need.filter(k=>!Tb[k]);
+  if(miss.length){rep.push({k:'err',m:`Missing table${miss.length>1?'s':''}: ${miss.join(', ')}. A database export needs Results, Specimen, SampleSet, Sample and Setup. For a single table, use the flat format.`});return null}
+  const idx=(rows,key)=>{const m=new Map();(rows||[]).forEach(r=>{if(r[key]!=null)m.set(String(r[key]),r)});return m};
+  const spec=idx(Tb.specimen,'specimenid'),set=idx(Tb.sampleset,'setid'),samp=idx(Tb.sample,'sampleid'),setup=idx(Tb.setup,'specimenid'),fu=idx(Tb.forneyuser,'forneyuserid');
+  const locs=[...new Set((Tb.sample||[]).map(r=>r.locationid).filter(x=>x!=null))].sort(),rows=[],drop={join:0,type:0,stress:0,date:0,age:0,machine:0};
+  for(const r of Tb.results){
+    const sid=r.specimenid!=null?String(r.specimenid):null,sp=sid&&spec.get(sid),ss=sp&&set.get(String(sp.setid)),sa=ss&&samp.get(String(ss.sampleid));
+    if(!sa){drop.join++;continue}
+    if(ss.specimentypeid!=null&&numv(ss.specimentypeid)!==4){drop.type++;continue}
+    const stress=numv(r.maxstress);if(stress==null||stress<=0){drop.stress++;continue}
+    const date=toIso(r.date);if(!date){drop.date++;continue}
+    const age=numv(ss.agetobreak);if(age==null||age<=0){drop.age++;continue}
+    const su=setup.get(sid);if(!su||su.machineid==null){drop.machine++;continue}
+    const u=su.userid!=null?fu.get(String(su.userid)):null;
+    rows.push({id:sid.slice(0,8),sample:String(sa.samplenumber??sid),setId:String(sp.setid),date,age,mix:String(numv(sa.mix)??sa.mix??'none'),loc:sa.locationid!=null?'L'+pad(locs.indexOf(sa.locationid)+1):'none',
+      machine:String(su.machineid),user:u?String(u.username??u.firstname??su.userid):(su.userid!=null?String(su.userid).slice(0,8):'none'),
+      load:numv(r.maxload),stress,ramp:numv(r.actualramprate)});
+  }
+  const sk=Object.entries({join:'could not be linked to a specimen, set and sample',type:'were not cylinders',stress:'had no strength',date:'had no valid date',age:'had no age at break',machine:'had no machine in Setup'}).filter(([k])=>drop[k]).map(([k,m])=>`${drop[k]} result${drop[k]>1?'s':''} ${m}`);
+  if(sk.length)rep.push({k:'warn',m:'Skipped: '+sk.join('; ')+'.'});
+  const machines=(Tb.machine||[]).map(m=>({serial:String(m.serialnumber),desc:String(m.description??''),ramDiam:numv(m.ramdiam),cap:numv(m.framecapacity)}));
+  const cals=(Tb.framecalibration||[]).map(c=>({serial:String(c.serialnumber),date:toIso(c.caldate),p:[1,2,3,4,5].map(i=>numv(c['pressure'+i])),f:[1,2,3,4,5].map(i=>numv(c['force'+i]))})).filter(c=>c.date&&c.p.every(v=>v!=null)&&c.f.every(v=>v!=null));
+  const tunes=(Tb.machinetuningparams||[]).map(u=>({serial:String(u.serialnumber),date:(toIso(u.date)||'').slice(0,10),prop:numv(u.prop),integral:numv(u.integral),der:numv(u.der),propSpeed:numv(u.propspeed),intSpeed:numv(u.intspeed),derSpeed:numv(u.derspeed)}));
+  if(!Tb.machine)rep.push({k:'warn',m:'No Machine table, so capacity and ram size are unknown.'});
+  if(!Tb.framecalibration)rep.push({k:'warn',m:'No FrameCalibration table, so calibration checks are off.'});
+  if(!Tb.forneyuser)rep.push({k:'warn',m:'No ForneyUser table, so operators are shown by ID.'});
+  return{tests:rows,machines,cals,tunes};
+}
+const FLATMAP={date:['date','testdate','broken'],age:['agedays','age','agetobreak'],stress:['strengthpsi','strength','maxstress','stress'],machine:['machine','machineid','serial'],user:['operator','user','userid','technician'],mix:['mix','mixid','mixname'],setId:['setid','set'],sample:['sample','samplenumber','sampleid'],load:['maxloadlbf','maxload','load'],ramp:['ramppsipers','ramprate','actualramprate','ramp']};
+function buildFlat(src,rep){
+  if(!src.length){rep.push({k:'err',m:'The table has no data rows.'});return null}
+  const keys=Object.keys(src[0]),col={};for(const f in FLATMAP){const h=FLATMAP[f].find(a=>keys.includes(a));if(h)col[f]=h}
+  const miss=['date','age','stress','machine'].filter(f=>!col[f]);
+  if(miss.length){rep.push({k:'err',m:`Missing required column${miss.length>1?'s':''}: ${miss.map(f=>({date:'date',age:'age_days',stress:'strength_psi',machine:'machine'}[f])).join(', ')}. Use the template for the exact headers.`});return null}
+  const g=(r,f)=>col[f]?r[col[f]]:null,rows=[];let skip=0;
+  src.forEach((r,i)=>{const stress=numv(g(r,'stress')),date=toIso(g(r,'date')),age=numv(g(r,'age')),mc=g(r,'machine');
+    if(stress==null||stress<=0||!date||age==null||age<=0||mc==null){skip++;return}
+    rows.push({id:String(i+1),sample:String(g(r,'sample')??'row'+(i+1)),setId:String(g(r,'setId')??'row'+i),date,age,mix:g(r,'mix')!=null?String(numv(g(r,'mix'))??g(r,'mix')):'none',loc:'none',machine:String(mc),user:g(r,'user')!=null?String(g(r,'user')):'none',load:numv(g(r,'load')),stress,ramp:numv(g(r,'ramp'))})});
+  if(skip)rep.push({k:'warn',m:`Skipped ${skip} row${skip>1?'s':''} missing a required value.`});
+  if(!g(src[0],'setId')&&!col.setId)rep.push({k:'warn',m:'No set_id column, so repeatability and the cross-check planner cannot use sets.'});
+  rep.push({k:'warn',m:'A flat table has no calibration records, so the Calibration sheet is empty.'});
+  return{tests:rows,machines:[],cals:[],tunes:[]};
+}
+function setData(B,label,rep){
+  if(!B||!B.tests.length){rep.push({k:'err',m:'No usable tests were found.'});return false}
+  T=B.tests.map(t=>({...t}));MACH=B.machines;CALS=B.cals;TUNE=B.tunes;sourceLabel=label;S.cmp={};
+  recalc();return true;
+}
+function recalc(){
+  A=analyze(T,MACH,CALS,TUNE,P);
+  renderOverview();renderBias();renderDrift();renderCal();renderNotes();
+  $('#srcline').textContent=`Currently checking ${f0(T.length)} tests from ${sourceLabel}.`;
+}
+function showReport(rep){$('#report').innerHTML=rep.map(r=>`<div class="msg"><span class="dot" style="--c:var(--${r.k==='ok'?'clean':r.k==='warn'?'soft':'hard'})"></span><span>${esc(r.m)}</span></div>`).join('')}
+async function loadFiles(files){
+  const rep=[],tables={},flats=[],names=[];
+  for(const f of files){
+    const ext=f.name.split('.').pop().toLowerCase();
+    try{
+      if(ext==='xlsx'||ext==='xlsm'){
+        if(typeof DecompressionStream==='undefined'){rep.push({k:'err',m:`${f.name}: this browser cannot unzip Excel files. Save the sheets as CSV, or use a current Chrome, Edge, Firefox or Safari.`});continue}
+        const sheets=await readXlsx(await f.arrayBuffer()),sn=Object.keys(sheets);
+        if(sn.some(n=>tableName(n)==='results')){sn.forEach(n=>{const t=tableName(n);if(t)tables[t]=sheets[n]});names.push(f.name)}
+        else if(sn.length)flats.push({rows:sheets[sn[0]],name:`${f.name}, sheet ${sn[0]}`});
+      }else if(['csv','tsv','txt'].includes(ext)){
+        const rows=parseCSV(await f.text()),t=tableName(f.name.replace(/\.[^.]+$/,''));
+        if(t){tables[t]=rows;names.push(f.name)}else flats.push({rows,name:f.name});
+      }else rep.push({k:'err',m:`${f.name}: unsupported file type. Use .xlsx, .csv or .tsv.`});
+    }catch(e){rep.push({k:'err',m:`${f.name}: could not be read (${e.message}).`})}
+  }
+  let B=null,label='';
+  if(Object.keys(tables).length){B=buildRelational(tables,rep);label=names.join(', ')}
+  else if(flats.length){B=buildFlat(flats[0].rows,rep);label=flats[0].name}
+  else if(!rep.length)rep.push({k:'err',m:'No usable files were found.'});
+  if(B&&setData(B,label,rep))rep.unshift({k:'ok',m:`Loaded ${f0(T.length)} tests from ${label}. Every sheet has been recalculated.`});
+  showReport(rep);
+}
+$('#file').addEventListener('change',e=>{if(e.target.files.length)loadFiles([...e.target.files]);e.target.value=''});
+const dz=$('#drop');
+['dragenter','dragover'].forEach(v=>dz.addEventListener(v,e=>{e.preventDefault();dz.classList.add('over')}));
+['dragleave','drop'].forEach(v=>dz.addEventListener(v,e=>{e.preventDefault();dz.classList.remove('over')}));
+dz.addEventListener('drop',e=>{if(e.dataTransfer.files.length)loadFiles([...e.dataTransfer.files])});
+$('#useSample').onclick=()=>{const rep=[];setData(BUNDLED,'the bundled sample (Example_Data_1.xlsx)',rep);rep.unshift({k:'ok',m:`Restored the bundled sample of ${f0(T.length)} tests.`});showReport(rep)};
+$('#tmpl').onclick=()=>{
+  const csv=['date,age_days,strength_psi,machine,operator,mix,set_id,sample,max_load_lbf,ramp_psi_per_s',
+    '2026-08-12 14:30,7,3597,M-100,Operator A,Mix-12,set-001,8-5-26-AB-1,45200,34.6','2026-08-12 14:41,7,3668,M-100,Operator A,Mix-12,set-001,8-5-26-AB-1,46100,34.2'].join('\r\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='flat_table_template.csv';document.body.appendChild(a);a.click();a.remove();
+};
+document.querySelectorAll('.field input[data-k]').forEach(i=>{
+  i.value=P[i.dataset.k];
+  i.addEventListener('input',()=>{const v=parseFloat(i.value);if(isNaN(v)||v<=0)return;P[i.dataset.k]=v;i.classList.toggle('changed',v!==DEFAULT_P[i.dataset.k]);recalc()});
+});
+/* init */
+setData(BUNDLED,sourceLabel,[]);
+</script>
+</body>
+</html>
